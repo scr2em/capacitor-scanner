@@ -1,0 +1,7 @@
+{
+  "name": "ll-scanner",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "custom"
+}
