@@ -6,6 +6,12 @@ import AVFoundation
  * Please read the Capacitor iOS Plugin Development Guide
  * here: https://capacitorjs.com/docs/plugins/ios
  */
+struct VoteStatus {
+    var votes: Int
+    var done: Bool
+}
+
+
 @objc(LLScannerPlugin)
 public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutputObjectsDelegate, AVCapturePhotoCaptureDelegate {
     public let identifier = "LLScannerPlugin"
@@ -22,7 +28,8 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
     
     private var captureSession: AVCaptureSession?
     private var cameraView: UIView?
-    private var previewLayer: AVCaptureVideoPreviewLayer?    
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var scannedCodesVotes : [String: VoteStatus] = [:]
     
     // for capturing images
     private var photoOutput: AVCapturePhotoOutput?
@@ -159,7 +166,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
             self.captureSession = nil
             self.cameraView = nil
             self.previewLayer = nil
-            
+            self.scannedCodesVotes = [:]
             self.showWebViewBackground()
             
             call.resolve()
@@ -173,11 +180,29 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
             return
         }
         
+        /*
+         this is a voting system to 
+         1. avoid scanning the same code
+         2. avoid scanning any code that doesn't appear for at least in 10 frames of the video stream to reduce the number of false positives
+         */
+        let voteThreshold = 5
+         var voteStatus = self.scannedCodesVotes[stringValue] ?? VoteStatus(votes: 0, done: false)
+         
+         if !voteStatus.done {
+             voteStatus.votes += 1
+             
+             if voteStatus.votes >= voteThreshold {
+                 voteStatus.done = true
+                 
+                 self.notifyListeners("barcodeScanned", data: [
+                     "scannedCode": stringValue,
+                     "format": LLScannerHelpers.convertBarcodeScannerFormatToString(metadataObject.type)
+                 ])
+             }
+         }
+         
+         self.scannedCodesVotes[stringValue] = voteStatus
         
-        self.notifyListeners("barcodeScanned", data: [
-            "scannedCode": stringValue,
-            "format": LLScannerHelpers.convertBarcodeScannerFormatToString(metadataObject.type)
-        ])
         
     }
     
