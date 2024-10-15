@@ -124,7 +124,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
         
         self.notifyListeners("barcodeScanned", data: [
             "scannedCode": stringValue,
-            "format": metadataObject.type.rawValue
+            "format": LLScannerHelpers.convertBarcodeScannerFormatToString(metadataObject.type)
         ])
 
     }
