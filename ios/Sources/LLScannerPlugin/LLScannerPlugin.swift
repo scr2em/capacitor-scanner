@@ -196,12 +196,12 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutp
         let discoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera],
             mediaType: .video,
-            position: .position
+            position: position
         )
         return discoverySession.devices.first
     }
 
-    private func getMetadataObjectTypes(from formats: [String]) -> [AVMetadataObject.ObjectType] {
+    private func getMetadataObjectTypes(from formats: [String]) -> [BarcodeFormat] {
         if formats.isEmpty {
             return LLScannerHelpers.getAllSupportedFormats()
         }
