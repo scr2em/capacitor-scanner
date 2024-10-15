@@ -1,4 +1,5 @@
 import { LLScanner } from 'll-scanner';
+let scannedCodes = new Set();
 
 const toggleScannerUI = (active) => {
   document.querySelector('main')?.classList.toggle('barcode-scanner-active', active);
@@ -20,6 +21,7 @@ window.startBackScanning = () => startScanning({ cameraDirection: 'BACK' });
 window.stopScanning = () => {
   toggleScannerUI(false);
   LLScanner.stopScanning();
+  scannedCodes = new Set();
 };
 
 window.openSettings = LLScanner.openSettings;
@@ -36,7 +38,6 @@ window.capturePhoto = () => {
     window.stopScanning();
   });
 };
-const scannedCodes = new Set();
 
 LLScanner.addListener('barcodeScanned', (e) => {
   const { scannedCode } = e;

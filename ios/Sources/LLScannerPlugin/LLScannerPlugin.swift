@@ -22,6 +22,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
     
     private var captureSession: AVCaptureSession?
     private var cameraView: UIView?
+    private var previewLayer: AVCaptureVideoPreviewLayer?    
     
     // for capturing images
     private var photoOutput: AVCapturePhotoOutput?
@@ -116,18 +117,18 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
             self.hideWebViewBackground()
             
             if let webView = self.webView, let superView = webView.superview {
-                // Create a view that will hold the AVCaptureVideoPreviewLayer
+                
                 let cameraView = UIView(frame: superView.bounds)
-                // Step 2: Configure the preview layer
-                let sessionLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-                sessionLayer.videoGravity = .resizeAspectFill
-                sessionLayer.frame = superView.bounds
-                cameraView.layer.addSublayer(sessionLayer)
+                let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+                previewLayer.videoGravity = .resizeAspectFill
+                previewLayer.frame = superView.bounds
+                cameraView.layer.addSublayer(previewLayer)
                 
-                
-                
-                // Insert cameraView below the webView, so the camera view is behind the web content
                 webView.superview?.insertSubview(cameraView, belowSubview: webView)
+                
+                self.captureSession = captureSession
+                self.cameraView = cameraView
+                self.previewLayer = previewLayer
                 
                 
                 
@@ -135,7 +136,6 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
                     captureSession.startRunning()
                     call.resolve()
                 }
-                self.captureSession = captureSession
                 
                 
                 
@@ -149,19 +149,20 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
     @objc func stopScanning(_ call: CAPPluginCall) {
         
         DispatchQueue.main.async {
-            if let cameraView = self.cameraView, let captureSession = self.captureSession {
-                
-                self.showWebViewBackground()
-                
+            if let captureSession = self.captureSession {
                 captureSession.stopRunning()
-                cameraView.removeFromSuperview()
-                self.cameraView = nil
-                self.captureSession = nil
-                call.resolve()
-                
-            }else{
-                call.reject("")
             }
+            
+            self.previewLayer?.removeFromSuperlayer()
+            self.cameraView?.removeFromSuperview()
+            
+            self.captureSession = nil
+            self.cameraView = nil
+            self.previewLayer = nil
+            
+            self.showWebViewBackground()
+            
+            call.resolve()
         }
         
     }
