@@ -12,6 +12,11 @@
 		  .barcode-scanner-active {
 			  visibility: hidden;
 		  }
+
+		  button {
+			  width: 100px;
+			  height:50px;
+		  }
 	  </style>
   </head>
   <body>
@@ -26,6 +31,9 @@
       <button onclick="startFrontScanning()">start front scanning</button>
       <button onclick="startBackScanning()">start back scanning</button>
       <button onclick="startBackScanningQR()">start front qr scanning</button>
+      <button onclick="openSettings()">open settings</button>
+		<button onclick="checkPermissions()">check permissions</button>
+		<button onclick="requestPermissions()">request permissions</button>
 
     </main>
 	<button onclick="stopScanning()" style="position: fixed; top:100px">stop scanning!</button>

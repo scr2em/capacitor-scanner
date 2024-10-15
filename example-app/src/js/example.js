@@ -23,6 +23,18 @@ window.stopScanning = () => {
   LLScanner.stopScanning();
 };
 
+window.openSettings = () => {
+  LLScanner.openSettings();
+};
+
+window.checkPermissions = () => {
+  LLScanner.checkPermissions().then((v) => alert(JSON.stringify(v)));
+};
+
+window.openSettings = () => {
+  LLScanner.requestPermissions();
+};
+
 const set = new Set();
 
 LLScanner.addListener('barcodesScanned', (e) => {

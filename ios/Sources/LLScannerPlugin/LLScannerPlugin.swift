@@ -13,6 +13,9 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "startScanning", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopScanning", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
 
 
@@ -117,8 +120,9 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
               let stringValue = metadataObject.stringValue else {
             return
         }
-
-        self.notifyListeners("barcodesScanned", data: [
+        
+        
+        self.notifyListeners("barcodeScanned", data: [
             "scannedCode": stringValue,
             "format": metadataObject.type.rawValue
         ])
@@ -168,5 +172,44 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
         webView.backgroundColor = UIColor.white
         webView.scrollView.backgroundColor = UIColor.white
     }
+    
+    
+    @objc override public func checkPermissions(_ call: CAPPluginCall) {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        
+          var stringStatus : String = "prompt"
+        
+        if status == .denied || status == .restricted {
+            stringStatus = "denied"
+        }
+        
+        if status == .authorized {
+            stringStatus = "granted"
+        }
+        
+           call.resolve(["camera":stringStatus ])
+       }
+    
+
+       @objc override public func requestPermissions(_ call: CAPPluginCall) {
+           AVCaptureDevice.requestAccess(for: .video) { _ in
+               self.checkPermissions(call)
+           }
+       }
+    
+    
+    @objc func openSettings(_ call: CAPPluginCall) {
+        let url = URL(string: UIApplication.openSettingsURLString)
+        DispatchQueue.main.async {
+            if let url = url, UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+                call.resolve()
+            }else{
+                call.reject("unknown")
+            }
+                
+        }
+    }
+    
     
 }

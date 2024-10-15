@@ -8,8 +8,11 @@ export type ScannerOptions = {
 export interface LLScannerPlugin {
   startScanning(options?: ScannerOptions): Promise<void>;
   stopScanning(): Promise<void>;
+  openSettings(): Promise<void>;
+  checkPermissions(): Promise<{ camera: 'prompt' | 'denied' | 'granted' }>;
+  requestPermissions(): Promise<void>;
   addListener(
-    event: 'barcodesScanned',
+    event: 'barcodeScanned',
     listenerFunc: (result: { scannedCode: string; format: string }) => void,
   ): Promise<PluginListenerHandle>;
   removeAllListeners(): Promise<void>;
