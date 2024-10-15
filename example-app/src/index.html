@@ -8,6 +8,11 @@
       content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <meta name="format-detection" content="telephone=no" />
+	  <style>
+		  .barcode-scanner-active {
+			  visibility: hidden;
+		  }
+	  </style>
   </head>
   <body>
     <main>
@@ -20,10 +25,13 @@
       <input type="text" id="echoInput" name="echoInput" value="Hello World!" />
       <button onclick="startFrontScanning()">start front scanning</button>
       <button onclick="startBackScanning()">start back scanning</button>
-		<button onclick="stopScanning()" style="position: fixed; top:0">stop scanning!</button>
+      <button onclick="startBackScanningQR()">start front qr scanning</button>
 
     </main>
+	<button onclick="stopScanning()" style="position: fixed; top:100px">stop scanning!</button>
 
     <script src="./js/example.js" type="module"></script>
   </body>
+
+
 </html>

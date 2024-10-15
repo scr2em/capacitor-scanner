@@ -14,50 +14,51 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
         CAPPluginMethod(name: "startScanning", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopScanning", returnType: CAPPluginReturnPromise),
     ]
-    
-    
+
+
     private var captureSession: AVCaptureSession?
-    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var cameraView: UIView?
     
     @objc func startScanning(_ call: CAPPluginCall) {
+        self.stopScanning(call)
+        
+      
+        
         DispatchQueue.main.async {
-            guard let rootView = self.bridge?.viewController?.view else {
-                call.reject("Unable to access the root view")
-                return
-            }
-            
-            self.captureSession = AVCaptureSession()
-            
+         
+            let captureSession = AVCaptureSession()
+            captureSession.sessionPreset = AVCaptureSession.Preset.hd1280x720
+
             let cameraDirection: AVCaptureDevice.Position = call.getString("cameraDirection", "BACK") == "BACK" ? .back : .front
-            
+
             guard let videoCaptureDevice = self.getCaptureDevice(position: cameraDirection) else {
                 call.reject("Unable to access the camera")
                 return
             }
-            
+
             let videoInput: AVCaptureDeviceInput
-            
+
             do {
                 videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
             } catch {
                 call.reject("Unable to initialize video input")
                 return
             }
-            
-            if (self.captureSession?.canAddInput(videoInput) ?? false) {
-                self.captureSession?.addInput(videoInput)
+
+            if (captureSession.canAddInput(videoInput)) {
+                captureSession.addInput(videoInput)
             } else {
                 call.reject("Unable to add video input to capture session")
                 return
             }
-            
+
             let metadataOutput = AVCaptureMetadataOutput()
-            
-            if (self.captureSession?.canAddOutput(metadataOutput) ?? false) {
-                self.captureSession?.addOutput(metadataOutput)
-                
+
+            if (captureSession.canAddOutput(metadataOutput)) {
+                captureSession.addOutput(metadataOutput)
+
                 metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-                
+
                 let formats = call.getArray("formats", String.self) ?? []
                 let metadataObjectTypes = self.getMetadataObjectTypes(from: formats)
                 metadataOutput.metadataObjectTypes = metadataObjectTypes
@@ -65,40 +66,65 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
                 call.reject("Unable to add metadata output to capture session")
                 return
             }
+
+            self.hideWebViewBackground()
             
-            self.previewLayer = AVCaptureVideoPreviewLayer(session: self.captureSession!)
-            self.previewLayer?.frame = rootView.bounds
-            self.previewLayer?.videoGravity = .resizeAspectFill
-            rootView.layer.addSublayer(self.previewLayer!)
-            
-            self.captureSession?.startRunning()
-            call.resolve()
+            if let webView = self.webView, let superView = webView.superview {
+                // Create a view that will hold the AVCaptureVideoPreviewLayer
+                let cameraView = UIView(frame: superView.bounds)
+                // Step 2: Configure the preview layer
+                let sessionLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+                sessionLayer.videoGravity = .resizeAspectFill
+                sessionLayer.frame = superView.bounds
+                cameraView.layer.addSublayer(sessionLayer)
+
+                
+                
+                // Insert cameraView below the webView, so the camera view is behind the web content
+                 webView.superview?.insertSubview(cameraView, belowSubview: webView)
+                
+                
+               
+                DispatchQueue.global(qos: .background).async {
+                    captureSession.startRunning()
+                    call.resolve()
+                }
+                self.captureSession = captureSession
+
+               
+              
+            }else{
+                call.reject("unknown error")
+            }
+          
         }
     }
-    
+
     @objc func stopScanning(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            self.showWebViewBackground()
+
             self.captureSession?.stopRunning()
-            self.previewLayer?.removeFromSuperlayer()
+            self.cameraView?.removeFromSuperview()
+            self.cameraView = nil
             self.captureSession = nil
-            self.previewLayer = nil
             call.resolve()
         }
     }
-    
+
     public func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
         guard let metadataObject = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
               let stringValue = metadataObject.stringValue else {
             return
         }
-    
+
         self.notifyListeners("barcodesScanned", data: [
             "scannedCode": stringValue,
             "format": metadataObject.type.rawValue
         ])
-        
+
     }
-    
+
     private func getCaptureDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
         let discoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera],
@@ -107,27 +133,40 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
         )
         return discoverySession.devices.first { $0.position == position }
     }
-    
+
     private func getMetadataObjectTypes(from formats: [String]) -> [AVMetadataObject.ObjectType] {
         if formats.isEmpty {
-            return [.aztec,  .code39, .code93, .code128, .dataMatrix, .ean8, .ean13, .itf14, .pdf417, .qr, .upce]
+            return LLScannerHelpers.getAllSupportedFormats()
         }
-        
+
         return formats.compactMap { format in
-            switch format {
-            case "AZTEC": return .aztec
-            case "CODE_39": return .code39
-            case "CODE_93": return .code93
-            case "CODE_128": return .code128
-            case "DATA_MATRIX": return .dataMatrix
-            case "EAN_8": return .ean8
-            case "EAN_13": return .ean13
-            case "ITF": return .itf14
-            case "PDF_417": return .pdf417
-            case "QR_CODE": return .qr
-            case "UPC_E": return .upce
-            default: return nil
-            }
+            return LLScannerHelpers.convertStringToBarcodeScannerFormat(format)
+            
         }
     }
+
+    /**
+     * Must run on UI thread.
+     */
+    private func hideWebViewBackground() {
+        guard let webView = self.webView else {
+            return
+        }
+        webView.isOpaque = false
+        webView.backgroundColor = UIColor.clear
+        webView.scrollView.backgroundColor = UIColor.clear
+    }
+
+    /**
+     * Must run on UI thread.
+     */
+    private func showWebViewBackground() {
+        guard let webView = self.webView else {
+            return
+        }
+        webView.isOpaque = true
+        webView.backgroundColor = UIColor.white
+        webView.scrollView.backgroundColor = UIColor.white
+    }
+    
 }

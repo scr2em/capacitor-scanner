@@ -17,17 +17,15 @@ export interface LLScannerPlugin {
 
 export enum BarcodeFormat {
   Aztec = 'AZTEC',
-  Codabar = 'CODABAR',
   Code39 = 'CODE_39',
   Code93 = 'CODE_93',
   Code128 = 'CODE_128',
   DataMatrix = 'DATA_MATRIX',
   Ean8 = 'EAN_8',
   Ean13 = 'EAN_13',
-  Itf = 'ITF',
+  Itf14 = 'ITF14',
   Pdf417 = 'PDF_417',
   QrCode = 'QR_CODE',
-  UpcA = 'UPC_A',
   UpcE = 'UPC_E',
 }
 
