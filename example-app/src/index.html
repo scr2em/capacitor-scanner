@@ -1,45 +1,49 @@
 <!doctype html>
 <html lang="en" dir="ltr" class="hydrated">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Example Capacitor App</title>
-    <meta
-      name="viewport"
-      content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <meta name="format-detection" content="telephone=no" />
-	  <style>
-		  .barcode-scanner-active {
-			  visibility: hidden;
-		  }
+<head>
+	<meta charset="UTF-8"/>
+	<title>Example Capacitor App</title>
+	<meta
+		name="viewport"
+		content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+	/>
+	<meta name="format-detection" content="telephone=no"/>
+	<style>
+		.barcode-scanner-active {
+			visibility: hidden;
+		}
 
-		  button {
-			  width: 100px;
-			  height:50px;
-		  }
-	  </style>
-  </head>
-  <body>
-    <main>
-      <h1>Capacitor Test Plugin Project</h1>
-      <p>
-        This project can be used to test out the functionality of your plugin. Nothing in the
-        <em>example-app/</em> folder will be published to npm when using this template, so you can create away!
-      </p>
-      <label for="echoInput">Echo Text:</label>
-      <input type="text" id="echoInput" name="echoInput" value="Hello World!" />
-      <button onclick="startFrontScanning()">start front scanning</button>
-      <button onclick="startBackScanning()">start back scanning</button>
-      <button onclick="startBackScanningQR()">start front qr scanning</button>
-      <button onclick="openSettings()">open settings</button>
-		<button onclick="checkPermissions()">check permissions</button>
-		<button onclick="requestPermissions()">request permissions</button>
+		button {
+			width: 100px;
+			height: 50px;
+		}
+	</style>
+</head>
+<body>
+<main>
+	<h1>Capacitor Test Plugin Project</h1>
+	<p>
+		This project can be used to test out the functionality of your plugin. Nothing in the
+		<em>example-app/</em> folder will be published to npm when using this template, so you can create away!
+	</p>
+	<button onclick="startFrontScanning()">start front scanning</button>
+	<button onclick="startBackScanning()">start back scanning</button>
+	<button onclick="openSettings()">open settings</button>
+	<button onclick="checkPermissions()">check permissions</button>
+	<button onclick="requestPermissions()">request permissions</button>
 
-    </main>
-	<button onclick="stopScanning()" style="position: fixed; top:100px">stop scanning!</button>
+	<br/>
 
-    <script src="./js/example.js" type="module"></script>
-  </body>
+	<button onclick="startBackScanningQR()">start front qr scanning</button>
+
+
+	<img id="photo" src=""/>
+</main>
+<button onclick="stopScanning()" style="position: fixed;left:0; top:100px">stop scanning!</button>
+<button onclick="capturePhoto()" style="position: fixed;right:0; top:100px">capture photo</button>
+
+<script src="./js/example.js" type="module"></script>
+</body>
 
 
 </html>

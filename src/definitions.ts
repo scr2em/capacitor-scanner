@@ -9,6 +9,7 @@ export interface LLScannerPlugin {
   startScanning(options?: ScannerOptions): Promise<void>;
   stopScanning(): Promise<void>;
   openSettings(): Promise<void>;
+  capturePhoto(): Promise<{ imageBase64: string }>;
   checkPermissions(): Promise<{ camera: 'prompt' | 'denied' | 'granted' }>;
   requestPermissions(): Promise<void>;
   addListener(

@@ -7,7 +7,7 @@ import AVFoundation
  * here: https://capacitorjs.com/docs/plugins/ios
  */
 @objc(LLScannerPlugin)
-public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutputObjectsDelegate {
+public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutputObjectsDelegate, AVCapturePhotoCaptureDelegate {
     public let identifier = "LLScannerPlugin"
     public let jsName = "LLScanner"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -15,53 +15,85 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
         CAPPluginMethod(name: "stopScanning", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "capturePhoto", returnType: CAPPluginReturnPromise)
     ]
-
-
+    
+    
     private var captureSession: AVCaptureSession?
     private var cameraView: UIView?
+    
+    // for capturing images
+    private var photoOutput: AVCapturePhotoOutput?
+    private var capturePhotoCall: CAPPluginCall?
+    
+    @objc func capturePhoto(_ call: CAPPluginCall) {
+        guard let photoOutput = self.photoOutput, captureSession?.isRunning == true else {
+            call.reject("Camera is not set up or running")
+            return
+        }
+        
+        let photoSettings = AVCapturePhotoSettings()
+        self.capturePhotoCall = call
+        photoOutput.capturePhoto(with: photoSettings, delegate: self)
+    }
+    
+    public func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        
+        if let captureError = error {
+            self.capturePhotoCall?.reject("Photo capture failed: \(captureError.localizedDescription)")
+            return
+        }
+        
+        guard let imageData = photo.fileDataRepresentation() else {
+            self.capturePhotoCall?.reject("Unable to get image data")
+            return
+        }
+        
+        let base64String = imageData.base64EncodedString()
+        self.capturePhotoCall?.resolve(["imageBase64": "data:image/jpeg;base64, \(base64String)" ])
+    }
+    
     
     @objc func startScanning(_ call: CAPPluginCall) {
         self.stopScanning(call)
         
-      
-        
         DispatchQueue.main.async {
-         
+            
             let captureSession = AVCaptureSession()
             captureSession.sessionPreset = AVCaptureSession.Preset.hd1280x720
-
+            
             let cameraDirection: AVCaptureDevice.Position = call.getString("cameraDirection", "BACK") == "BACK" ? .back : .front
-
+            
+            
             guard let videoCaptureDevice = self.getCaptureDevice(position: cameraDirection) else {
                 call.reject("Unable to access the camera")
                 return
             }
-
+            
             let videoInput: AVCaptureDeviceInput
-
+            
             do {
                 videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
             } catch {
                 call.reject("Unable to initialize video input")
                 return
             }
-
+            
             if (captureSession.canAddInput(videoInput)) {
                 captureSession.addInput(videoInput)
             } else {
                 call.reject("Unable to add video input to capture session")
                 return
             }
-
+            
             let metadataOutput = AVCaptureMetadataOutput()
-
+            
             if (captureSession.canAddOutput(metadataOutput)) {
                 captureSession.addOutput(metadataOutput)
-
+                
                 metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-
+                
                 let formats = call.getArray("formats", String.self) ?? []
                 let metadataObjectTypes = self.getMetadataObjectTypes(from: formats)
                 metadataOutput.metadataObjectTypes = metadataObjectTypes
@@ -69,7 +101,18 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
                 call.reject("Unable to add metadata output to capture session")
                 return
             }
-
+            
+            // Add photo output
+            let photoOutput = AVCapturePhotoOutput()
+            self.photoOutput = photoOutput
+            if captureSession.canAddOutput(photoOutput)  {
+                captureSession.addOutput(photoOutput)
+            } else {
+                call.reject("Unable to add photo output to capture session")
+                return
+            }
+            
+            
             self.hideWebViewBackground()
             
             if let webView = self.webView, let superView = webView.superview {
@@ -80,41 +123,49 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
                 sessionLayer.videoGravity = .resizeAspectFill
                 sessionLayer.frame = superView.bounds
                 cameraView.layer.addSublayer(sessionLayer)
-
+                
                 
                 
                 // Insert cameraView below the webView, so the camera view is behind the web content
-                 webView.superview?.insertSubview(cameraView, belowSubview: webView)
+                webView.superview?.insertSubview(cameraView, belowSubview: webView)
                 
                 
-               
+                
                 DispatchQueue.global(qos: .background).async {
                     captureSession.startRunning()
                     call.resolve()
                 }
                 self.captureSession = captureSession
-
-               
-              
+                
+                
+                
             }else{
                 call.reject("unknown")
             }
-          
+            
         }
     }
-
+    
     @objc func stopScanning(_ call: CAPPluginCall) {
+        
         DispatchQueue.main.async {
-            self.showWebViewBackground()
-
-            self.captureSession?.stopRunning()
-            self.cameraView?.removeFromSuperview()
-            self.cameraView = nil
-            self.captureSession = nil
-            call.resolve()
+            if let cameraView = self.cameraView, let captureSession = self.captureSession {
+                
+                self.showWebViewBackground()
+                
+                captureSession.stopRunning()
+                cameraView.removeFromSuperview()
+                self.cameraView = nil
+                self.captureSession = nil
+                call.resolve()
+                
+            }else{
+                call.reject("")
+            }
         }
+        
     }
-
+    
     public func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
         guard let metadataObject = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
               let stringValue = metadataObject.stringValue else {
@@ -126,9 +177,9 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
             "scannedCode": stringValue,
             "format": LLScannerHelpers.convertBarcodeScannerFormatToString(metadataObject.type)
         ])
-
+        
     }
-
+    
     private func getCaptureDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
         let discoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera],
@@ -137,18 +188,18 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
         )
         return discoverySession.devices.first { $0.position == position }
     }
-
+    
     private func getMetadataObjectTypes(from formats: [String]) -> [AVMetadataObject.ObjectType] {
         if formats.isEmpty {
             return LLScannerHelpers.getAllSupportedFormats()
         }
-
+        
         return formats.compactMap { format in
             return LLScannerHelpers.convertStringToBarcodeScannerFormat(format)
             
         }
     }
-
+    
     /**
      * Must run on UI thread.
      */
@@ -160,7 +211,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
         webView.backgroundColor = UIColor.clear
         webView.scrollView.backgroundColor = UIColor.clear
     }
-
+    
     /**
      * Must run on UI thread.
      */
@@ -177,7 +228,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
     @objc override public func checkPermissions(_ call: CAPPluginCall) {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         
-          var stringStatus : String = "prompt"
+        var stringStatus : String = "prompt"
         
         if status == .denied || status == .restricted {
             stringStatus = "denied"
@@ -187,15 +238,15 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
             stringStatus = "granted"
         }
         
-           call.resolve(["camera":stringStatus ])
-       }
+        call.resolve(["camera":stringStatus ])
+    }
     
-
-       @objc override public func requestPermissions(_ call: CAPPluginCall) {
-           AVCaptureDevice.requestAccess(for: .video) { _ in
-               self.checkPermissions(call)
-           }
-       }
+    
+    @objc override public func requestPermissions(_ call: CAPPluginCall) {
+        AVCaptureDevice.requestAccess(for: .video) { _ in
+            self.checkPermissions(call)
+        }
+    }
     
     
     @objc func openSettings(_ call: CAPPluginCall) {
@@ -207,7 +258,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
             }else{
                 call.reject("unknown")
             }
-                
+            
         }
     }
     

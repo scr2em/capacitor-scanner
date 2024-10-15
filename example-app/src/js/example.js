@@ -30,6 +30,12 @@ window.checkPermissions = () => {
 
 window.requestPermissions = LLScanner.requestPermissions;
 
+window.capturePhoto = () => {
+  LLScanner.capturePhoto().then((v) => {
+    document.getElementById('photo').src = v.imageBase64;
+    window.stopScanning();
+  });
+};
 const scannedCodes = new Set();
 
 LLScanner.addListener('barcodeScanned', (e) => {
