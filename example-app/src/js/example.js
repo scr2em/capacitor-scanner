@@ -32,7 +32,7 @@ window.requestPermissions = LLScanner.requestPermissions;
 
 const scannedCodes = new Set();
 
-LLScanner.addListener('barcodesScanned', (e) => {
+LLScanner.addListener('barcodeScanned', (e) => {
   const { scannedCode } = e;
   if (!scannedCodes.has(scannedCode)) {
     scannedCodes.add(scannedCode);
