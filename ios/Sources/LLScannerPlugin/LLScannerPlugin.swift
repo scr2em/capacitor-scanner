@@ -13,7 +13,6 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "startScanning", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopScanning", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "flipCamera", returnType: CAPPluginReturnPromise),
     ]
     
     

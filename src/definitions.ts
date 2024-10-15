@@ -1,3 +1,5 @@
+import type { PluginListenerHandle } from '@capacitor/core';
+
 export type ScannerOptions = {
   formats?: BarcodeFormat[];
   cameraDirection?: 'BACK' | 'FRONT';
@@ -9,7 +11,7 @@ export interface LLScannerPlugin {
   addListener(
     event: 'barcodesScanned',
     listenerFunc: (result: { scannedCode: string; format: string }) => void,
-  ): Promise<any>;
+  ): Promise<PluginListenerHandle>;
   removeAllListeners(): Promise<void>;
 }
 
