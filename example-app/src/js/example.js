@@ -1,48 +1,42 @@
 import { LLScanner } from 'll-scanner';
 
-window.startBackScanningQR = () => {
-  document.querySelector('main')?.classList.add('barcode-scanner-active');
-
-  LLScanner.startScanning({ cameraDirection: 'BACK', formats: ['QR_CODE'] });
+const toggleScannerUI = (active) => {
+  document.querySelector('main')?.classList.toggle('barcode-scanner-active', active);
 };
 
-window.startFrontScanning = () => {
-  document.querySelector('main')?.classList.add('barcode-scanner-active');
-
-  LLScanner.startScanning({ cameraDirection: 'FRONT' });
+const handleScanningError = (error) => {
+  alert(JSON.stringify({ error }));
 };
 
-window.startBackScanning = () => {
-  document.querySelector('main')?.classList.add('barcode-scanner-active');
-
-  LLScanner.startScanning({ cameraDirection: 'BACK' });
+const startScanning = (options) => {
+  toggleScannerUI(true);
+  LLScanner.startScanning(options).then(handleScanningError);
 };
+
+window.startBackScanningQR = () => startScanning({ cameraDirection: 'BACK', formats: ['QR_CODE'] });
+window.startFrontScanning = () => startScanning({ cameraDirection: 'FRONT' });
+window.startBackScanning = () => startScanning({ cameraDirection: 'BACK' });
+
 window.stopScanning = () => {
-  document.querySelector('main')?.classList.remove('barcode-scanner-active');
-
+  toggleScannerUI(false);
   LLScanner.stopScanning();
 };
 
-window.openSettings = () => {
-  LLScanner.openSettings();
-};
+window.openSettings = LLScanner.openSettings;
 
 window.checkPermissions = () => {
   LLScanner.checkPermissions().then((v) => alert(JSON.stringify(v)));
 };
 
-window.openSettings = () => {
-  LLScanner.requestPermissions();
-};
+window.requestPermissions = LLScanner.requestPermissions;
 
-const set = new Set();
+const scannedCodes = new Set();
 
 LLScanner.addListener('barcodesScanned', (e) => {
-  const scannedCode = e.scannedCode;
-  if (set.has(scannedCode)) {
-    return;
+  const { scannedCode } = e;
+  if (!scannedCodes.has(scannedCode)) {
+    scannedCodes.add(scannedCode);
+    alert(JSON.stringify(e));
+    // LLScanner.stopScanning();
   }
-  set.add(scannedCode);
-  alert(JSON.stringify(e));
-  // LLScanner.stopScanning();
 });

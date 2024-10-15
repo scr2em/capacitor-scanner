@@ -97,7 +97,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin,AVCaptureMetadataOutpu
                
               
             }else{
-                call.reject("unknown error")
+                call.reject("unknown")
             }
           
         }
