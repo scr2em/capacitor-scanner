@@ -8,12 +8,9 @@ const handleScanningError = (error) => {
   alert(JSON.stringify({ error }));
 };
 
-const handleScanningSuccess = (data) => {
-  alert(JSON.stringify(data));
-};
 const startScanning = (options) => {
   toggleScannerUI(true);
-  LLScanner.startScanning(options).then(handleScanningSuccess).catch(handleScanningError);
+  LLScanner.startScanning(options).catch(handleScanningError);
 };
 
 window.startBackScanningQR = () => startScanning({ cameraDirection: 'BACK', formats: ['QR_CODE'] });
