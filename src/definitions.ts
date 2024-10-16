@@ -1,23 +1,29 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 
+export interface LLScannerPlugin {
+  startScanning(options?: ScannerOptions): Promise<void>;
+  stopScanning(): Promise<void>;
+  openSettings(): Promise<void>;
+  capturePhoto(): Promise<CapturePhotoResult>;
+  checkPermissions(): Promise<PermissionsResult>;
+  requestPermissions(): Promise<void>;
+  addListener(
+    event: 'barcodeScanned',
+    listenerFunc: (result: BarcodeScannedEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  removeAllListeners(): Promise<void>;
+}
+
 export type ScannerOptions = {
   formats?: BarcodeFormat[];
   cameraDirection?: 'BACK' | 'FRONT';
 };
 
-export interface LLScannerPlugin {
-  startScanning(options?: ScannerOptions): Promise<void>;
-  stopScanning(): Promise<void>;
-  openSettings(): Promise<void>;
-  capturePhoto(): Promise<{ imageBase64: string }>;
-  checkPermissions(): Promise<{ camera: 'prompt' | 'denied' | 'granted' }>;
-  requestPermissions(): Promise<void>;
-  addListener(
-    event: 'barcodeScanned',
-    listenerFunc: (result: { scannedCode: string; format: string }) => void,
-  ): Promise<PluginListenerHandle>;
-  removeAllListeners(): Promise<void>;
-}
+export type BarcodeScannedEvent = { scannedCode: string; format: string };
+
+export type PermissionsResult = { camera: 'prompt' | 'denied' | 'granted' };
+
+export type CapturePhotoResult = { imageBase64: string };
 
 export enum BarcodeFormat {
   Aztec = 'AZTEC',
