@@ -21,7 +21,6 @@ npx cap sync
 * [`requestPermissions()`](#requestpermissions)
 * [`addListener('barcodeScanned', ...)`](#addlistenerbarcodescanned-)
 * [`removeAllListeners()`](#removealllisteners)
-* [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 * [Enums](#enums)
 
@@ -97,15 +96,13 @@ requestPermissions() => Promise<PermissionsResult>
 ### addListener('barcodeScanned', ...)
 
 ```typescript
-addListener(event: 'barcodeScanned', listenerFunc: (result: BarcodeScannedEvent) => void) => Promise<PluginListenerHandle>
+addListener(event: 'barcodeScanned', listenerFunc: (result: BarcodeScannedEvent) => void) => Promise<void>
 ```
 
 | Param              | Type                                                                                     |
 | ------------------ | ---------------------------------------------------------------------------------------- |
 | **`event`**        | <code>'barcodeScanned'</code>                                                            |
 | **`listenerFunc`** | <code>(result: <a href="#barcodescannedevent">BarcodeScannedEvent</a>) =&gt; void</code> |
-
-**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
 --------------------
 
@@ -117,16 +114,6 @@ removeAllListeners() => Promise<void>
 ```
 
 --------------------
-
-
-### Interfaces
-
-
-#### PluginListenerHandle
-
-| Prop         | Type                                      |
-| ------------ | ----------------------------------------- |
-| **`remove`** | <code>() =&gt; Promise&lt;void&gt;</code> |
 
 
 ### Type Aliases
