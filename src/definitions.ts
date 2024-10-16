@@ -6,7 +6,7 @@ export interface LLScannerPlugin {
   openSettings(): Promise<void>;
   capturePhoto(): Promise<CapturePhotoResult>;
   checkPermissions(): Promise<PermissionsResult>;
-  requestPermissions(): Promise<void>;
+  requestPermissions(): Promise<PermissionsResult>;
   addListener(
     event: 'barcodeScanned',
     listenerFunc: (result: BarcodeScannedEvent) => void,
