@@ -1,5 +1,3 @@
-import type { PluginListenerHandle } from '@capacitor/core';
-
 export interface LLScannerPlugin {
   startScanning(options?: ScannerOptions): Promise<void>;
   stopScanning(): Promise<void>;
@@ -7,10 +5,7 @@ export interface LLScannerPlugin {
   capturePhoto(): Promise<CapturePhotoResult>;
   checkPermissions(): Promise<PermissionsResult>;
   requestPermissions(): Promise<PermissionsResult>;
-  addListener(
-    event: 'barcodeScanned',
-    listenerFunc: (result: BarcodeScannedEvent) => void,
-  ): Promise<PluginListenerHandle>;
+  addListener(event: 'barcodeScanned', listenerFunc: (result: BarcodeScannedEvent) => void): Promise<void>;
   removeAllListeners(): Promise<void>;
 }
 
