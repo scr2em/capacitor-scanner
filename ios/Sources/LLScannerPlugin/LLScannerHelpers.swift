@@ -9,7 +9,7 @@ public class LLScannerHelpers {
     public static func getAllSupportedFormats() -> [BarcodeFormat] {
         return [.aztec,  .code39, .code93, .code128, .dataMatrix, .ean8, .ean13, .itf14, .pdf417, .qr, .upce]
     }
-    
+
     public static func convertStringToBarcodeScannerFormat(_ value: String) -> BarcodeFormat? {
         switch value {
         case "AZTEC":

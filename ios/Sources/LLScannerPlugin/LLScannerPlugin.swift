@@ -35,6 +35,8 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutp
     private var photoOutput: AVCapturePhotoOutput?
     private var capturePhotoCall: CAPPluginCall?
 
+    private var orientationObserver: NSObjectProtocol?
+
     @objc func capturePhoto(_ call: CAPPluginCall) {
         guard let photoOutput = self.photoOutput, captureSession?.isRunning == true else {
             call.reject("Camera is not set up or running")
@@ -131,6 +133,12 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutp
                 self.cameraView = cameraView
                 self.previewLayer = previewLayer
 
+                // Add orientation change observer
+                self.addOrientationChangeObserver()
+
+                // Initial orientation setup
+                self.updatePreviewOrientation()
+
                 DispatchQueue.global(qos: .background).async {
                     captureSession.startRunning()
                     call.resolve()
@@ -157,8 +165,75 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutp
             self.scannedCodesVotes = [:]
             self.showWebViewBackground()
 
+            self.removeOrientationChangeObserver()
+
             call.resolve()
         }
+    }
+
+    private func addOrientationChangeObserver() {
+        self.orientationObserver = NotificationCenter.default.addObserver(
+            forName: UIDevice.orientationDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updatePreviewOrientation()
+        }
+    }
+
+    private func removeOrientationChangeObserver() {
+        if let observer = self.orientationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            self.orientationObserver = nil
+        }
+    }
+
+    private func updatePreviewOrientation() {
+        guard let previewLayer = self.previewLayer,
+              let connection = previewLayer.connection,
+              let cameraView = self.cameraView
+        else {
+            return
+        }
+
+        let deviceOrientation = UIDevice.current.orientation
+
+        if deviceOrientation.isFlat == true || deviceOrientation == .portraitUpsideDown {
+            return
+        }
+
+        let newOrientation: AVCaptureVideoOrientation
+
+        switch deviceOrientation {
+        case .landscapeLeft:
+            newOrientation = .landscapeRight
+        case .landscapeRight:
+            newOrientation = .landscapeLeft
+        default:
+            newOrientation = .portrait
+        }
+
+        connection.videoOrientation = newOrientation
+
+        // Update camera view and preview layer frames
+        let screenBounds = UIScreen.main.bounds
+        let screenWidth = screenBounds.width
+        let screenHeight = screenBounds.height
+
+        // Determine the correct dimensions based on orientation
+        let width: CGFloat
+        let height: CGFloat
+        if newOrientation == .portrait {
+            width = min(screenWidth, screenHeight)
+            height = max(screenWidth, screenHeight)
+        } else {
+            width = max(screenWidth, screenHeight)
+            height = min(screenWidth, screenHeight)
+        }
+
+        // Update frames
+        cameraView.frame = CGRect(x: 0, y: 0, width: width, height: height)
+        previewLayer.frame = cameraView.bounds
     }
 
     public func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
