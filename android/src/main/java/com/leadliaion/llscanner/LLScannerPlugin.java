@@ -18,7 +18,7 @@ import com.getcapacitor.JSArray;
 
 import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
-import androidx.camera.core.Camera;
+
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
@@ -28,7 +28,6 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
-import androidx.lifecycle.LifecycleOwner;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -70,7 +69,7 @@ public class LLScannerPlugin extends Plugin {
     private ProcessCameraProvider cameraProvider;
     private BarcodeScanner scanner;
     private final Map<String, VoteStatus> scannedCodesVotes = new HashMap<>();
-    private final int voteThreshold = 2;
+    private final int voteThreshold = 3;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean isScanning = new AtomicBoolean(false);
     private FrameLayout containerView;
@@ -84,7 +83,6 @@ public class LLScannerPlugin extends Plugin {
     @Override
     public void load() {
         super.load();
-        // Initialize ML Kit barcode scanner with all formats
         scanner = BarcodeScanning.getClient(new BarcodeScannerOptions.Builder()
                 .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
                 .build());
@@ -108,7 +106,6 @@ public class LLScannerPlugin extends Plugin {
             isScanning.set(true);
 
             try {
-                // Get camera direction
                 String cameraDirectionStr = call.getString("cameraDirection", "BACK");
                 int lensFacing;
                 if (cameraDirectionStr != null) {
@@ -117,7 +114,6 @@ public class LLScannerPlugin extends Plugin {
                     lensFacing = CameraSelector.LENS_FACING_BACK;
                 }
 
-                // Get formats
                 JSArray formatsArray = call.getArray("formats");
                 BarcodeScannerOptions.Builder optionsBuilder = new BarcodeScannerOptions.Builder();
 
@@ -146,35 +142,27 @@ public class LLScannerPlugin extends Plugin {
 
                 scanner = BarcodeScanning.getClient(optionsBuilder.build());
 
-                // Set up the camera preview
                 previewView = new PreviewView(getContext());
                 previewView.setLayoutParams(new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT));
-                // Adjust the scale type to FILL_CENTER to fill the view
                 previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
 
-                // Create containerView and add previewView to it
                 containerView = new FrameLayout(getContext());
                 containerView.setLayoutParams(new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT));
 
-                // Add the previewView to the container
                 containerView.addView(previewView);
 
-                // Get the WebView and its parent
                 WebView webView = getBridge().getWebView();
                 ViewGroup webViewParent = (ViewGroup) webView.getParent();
 
-                // Insert containerView behind the WebView
                 int webViewIndex = webViewParent.indexOfChild(webView);
                 webViewParent.addView(containerView, webViewIndex);
 
-                // Make WebView transparent
                 hideWebViewBackground();
 
-                // Initialize CameraX
                 ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(getContext());
 
                 cameraProviderFuture.addListener(() -> {
@@ -182,7 +170,6 @@ public class LLScannerPlugin extends Plugin {
                         cameraProvider = cameraProviderFuture.get();
                         bindCamera(cameraProvider, previewView, lensFacing);
 
-                        // Initialize and enable the OrientationEventListener
                         orientationEventListener = new OrientationEventListener(getContext()) {
                             @Override
                             public void onOrientationChanged(int orientation) {
@@ -191,7 +178,6 @@ public class LLScannerPlugin extends Plugin {
                                 }
                                 int rotation = getDisplaySurfaceRotation();
 
-                                // Update the target rotation
                                 if (imageAnalysis != null) {
                                     imageAnalysis.setTargetRotation(rotation);
                                 }
@@ -225,34 +211,28 @@ public class LLScannerPlugin extends Plugin {
     private void bindCamera(@NonNull ProcessCameraProvider cameraProvider, PreviewView previewView, int lensFacing) {
         cameraProvider.unbindAll();
 
-        // Get screen dimensions
         DisplayMetrics metrics = new DisplayMetrics();
         getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
         int screenWidth = metrics.widthPixels;
         int screenHeight = metrics.heightPixels;
 
-        // Determine if the device is in portrait or landscape mode
         int rotation = getDisplaySurfaceRotation();
         boolean isPortrait = rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180;
 
-        // Swap width and height if in landscape
         int targetWidth = isPortrait ? screenWidth : screenHeight;
         int targetHeight = isPortrait ? screenHeight : screenWidth;
 
         Size targetResolution = new Size(targetWidth, targetHeight);
 
-        // Preview Use Case
         preview = new Preview.Builder()
                 .setTargetResolution(targetResolution)
                 .setTargetRotation(rotation)
                 .build();
 
-        // Camera Selector
         CameraSelector cameraSelector = new CameraSelector.Builder()
                 .requireLensFacing(lensFacing)
                 .build();
 
-        // Image Analysis Use Case
         imageAnalysis = new ImageAnalysis.Builder()
                 .setTargetResolution(targetResolution)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -261,16 +241,13 @@ public class LLScannerPlugin extends Plugin {
 
         imageAnalysis.setAnalyzer(executor, new BarcodeAnalyzer());
 
-        // Image Capture Use Case
         imageCapture = new ImageCapture.Builder()
                 .setTargetResolution(targetResolution)
                 .setTargetRotation(rotation)
                 .build();
 
-        // Bind to Lifecycle
         try {
-            Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner) getActivity(), cameraSelector, preview, imageAnalysis, imageCapture);
-            // Set the surface provider AFTER binding to lifecycle
+            cameraProvider.bindToLifecycle(getActivity(), cameraSelector, preview, imageAnalysis, imageCapture);
             preview.setSurfaceProvider(previewView.getSurfaceProvider());
         } catch (Exception e) {
             echo("Failed to bind camera to lifecycle: " + e.getMessage());
@@ -291,11 +268,9 @@ public class LLScannerPlugin extends Plugin {
                 scanner.process(image)
                         .addOnSuccessListener(executor,LLScannerPlugin.this::processBarcodes)
                         .addOnFailureListener(executor,e -> {
-                            // Handle error
+                            echo("Failed to process image: " + e.getMessage());
                         })
-                        .addOnCompleteListener(task -> {
-                            imageProxy.close();
-                        });
+                        .addOnCompleteListener(task -> imageProxy.close());
             } else {
                 imageProxy.close();
             }
@@ -307,11 +282,9 @@ public class LLScannerPlugin extends Plugin {
             if (rawValue == null || rawValue.isEmpty()) {
                 byte[] rawBytes = barcode.getRawBytes();
                 if (rawBytes != null && rawBytes.length > 0) {
-                    // Convert bytes to string by mapping each byte to a character
                     rawValue = bytesToString(rawBytes);
                 } else {
                     echo("Barcode has no rawValue or rawBytes, skipping");
-                    continue; // Cannot proceed without rawValue
                 }
             }
             echo("Processing barcode with rawValue: " + rawValue);
@@ -394,35 +367,27 @@ public class LLScannerPlugin extends Plugin {
             return;
         }
 
-        // Create a ByteArrayOutputStream to capture the image in memory
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        // Create OutputFileOptions using the ByteArrayOutputStream
         ImageCapture.OutputFileOptions outputOptions =
                 new ImageCapture.OutputFileOptions.Builder(outputStream).build();
 
-        // Capture the image
         imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(getContext()),
                 new ImageCapture.OnImageSavedCallback() {
                     @Override
                     public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                         try {
-                            // Get the image bytes from the OutputStream
                             byte[] bytes = outputStream.toByteArray();
 
-                            // Encode the image bytes to Base64
                             String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
 
-                            // Create the response object
                             JSObject ret = new JSObject();
                             ret.put("imageBase64", "data:image/jpeg;base64," + base64);
 
-                            // Resolve the call with the Base64 image
                             call.resolve(ret);
                         } catch (Exception e) {
                             call.reject("Failed to process image: " + e.getMessage());
                         } finally {
-                            // Always close the stream to free up resources
                             try {
                                 outputStream.close();
                             } catch (IOException e) {
@@ -485,13 +450,13 @@ public class LLScannerPlugin extends Plugin {
             getContext().startActivity(intent);
             call.resolve();
         } catch (Exception ex) {
+            echo("Failed to open settings: " + ex.getMessage());
             call.reject("Failed to open settings: " + ex.getMessage());
         }
     }
 
     private void logLongMessage(String message) {
         if (message.length() > 4000) {
-            // Split the message into chunks of 4000 characters
             int chunkCount = message.length() / 4000;
             for (int i = 0; i <= chunkCount; i++) {
                 int max = 4000 * (i + 1);
