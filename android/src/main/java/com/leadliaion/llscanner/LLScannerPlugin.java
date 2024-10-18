@@ -6,8 +6,10 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.provider.Settings;
 import android.util.Base64;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
+import android.view.Surface;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.view.View;
@@ -21,8 +23,8 @@ import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageProxy;
-import androidx.camera.core.Preview;
 import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
@@ -56,8 +58,10 @@ import java.util.concurrent.Executors;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import android.view.OrientationEventListener;
+
 @ExperimentalGetImage
-    @CapacitorPlugin(
+@CapacitorPlugin(
         name = "LLScanner",
         permissions = {
                 @Permission(strings = { Manifest.permission.CAMERA }, alias = "camera")
@@ -66,13 +70,17 @@ public class LLScannerPlugin extends Plugin {
 
     private PreviewView previewView;
     private ProcessCameraProvider cameraProvider;
-    private ImageCapture imageCapture;
     private BarcodeScanner scanner;
     private final Map<String, VoteStatus> scannedCodesVotes = new HashMap<>();
     private final int voteThreshold = 5;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean isScanning = new AtomicBoolean(false);
     private FrameLayout containerView;
+
+    private OrientationEventListener orientationEventListener;
+    private Preview preview;
+    private ImageAnalysis imageAnalysis;
+    private ImageCapture imageCapture;
 
     private static class VoteStatus {
         public int votes;
@@ -93,19 +101,16 @@ public class LLScannerPlugin extends Plugin {
                 .build());
     }
 
-
-
-
     @PluginMethod
     public void startScanning(PluginCall call) {
-        echo( "startScanning");
+        echo("startScanning");
         if (isScanning.get()) {
             call.resolve();
             return;
         }
 
         if (getPermissionState("camera") != PermissionState.GRANTED) {
-            echo( "requestPermissionForAlias");
+            echo("requestPermissionForAlias");
             requestPermissionForAlias("camera", call, "cameraPermsCallback");
             return;
         }
@@ -120,7 +125,7 @@ public class LLScannerPlugin extends Plugin {
                 if (cameraDirectionStr != null) {
                     lensFacing = cameraDirectionStr.equals("FRONT") ? CameraSelector.LENS_FACING_FRONT : CameraSelector.LENS_FACING_BACK;
                 } else {
-                    lensFacing = 1;
+                    lensFacing = CameraSelector.LENS_FACING_BACK;
                 }
 
                 // Get formats
@@ -152,37 +157,12 @@ public class LLScannerPlugin extends Plugin {
 
                 scanner = BarcodeScanning.getClient(optionsBuilder.build());
 
-//                // Set up the camera preview
-//                previewView = new PreviewView(getContext());
-//                previewView.setLayoutParams(new FrameLayout.LayoutParams(
-//                        FrameLayout.LayoutParams.MATCH_PARENT,
-//                        FrameLayout.LayoutParams.MATCH_PARENT));
-//                previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
-//
-//                // Insert the previewView into the view hierarchy
-//                FrameLayout containerView = new FrameLayout(getContext());
-//                containerView.setLayoutParams(new FrameLayout.LayoutParams(
-//                        FrameLayout.LayoutParams.MATCH_PARENT,
-//                        FrameLayout.LayoutParams.MATCH_PARENT));
-//
-//                // Add the previewView to the container
-//                containerView.addView(previewView);
-//
-//                // Get the root view and add the containerView
-//                ViewGroup rootView = (ViewGroup) getActivity().findViewById(android.R.id.content);
-//                rootView.addView(containerView);
-
-//                // Bring the WebView to front and make it transparent
-//                WebView webView = getBridge().getWebView();
-//                webView.setBackgroundColor(Color.TRANSPARENT);
-//                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-//                webView.bringToFront();
-
                 // Set up the camera preview
                 previewView = new PreviewView(getContext());
                 previewView.setLayoutParams(new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT));
+                // Adjust the scale type to FILL_CENTER to fill the view
                 previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
 
                 // Create containerView and add previewView to it
@@ -205,8 +185,6 @@ public class LLScannerPlugin extends Plugin {
                 // Make WebView transparent
                 hideWebViewBackground();
 
-
-
                 // Initialize CameraX
                 ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(getContext());
 
@@ -214,6 +192,33 @@ public class LLScannerPlugin extends Plugin {
                     try {
                         cameraProvider = cameraProviderFuture.get();
                         bindCamera(cameraProvider, previewView, lensFacing);
+
+                        // Initialize and enable the OrientationEventListener
+                        orientationEventListener = new OrientationEventListener(getContext()) {
+                            @Override
+                            public void onOrientationChanged(int orientation) {
+                                if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) {
+                                    return;
+                                }
+                                int rotation = getDisplaySurfaceRotation();
+
+                                // Update the target rotation
+                                if (imageAnalysis != null) {
+                                    imageAnalysis.setTargetRotation(rotation);
+                                }
+                                if (preview != null) {
+                                    preview.setTargetRotation(rotation);
+                                }
+                                if (imageCapture != null) {
+                                    imageCapture.setTargetRotation(rotation);
+                                }
+                            }
+                        };
+
+                        if (orientationEventListener.canDetectOrientation()) {
+                            orientationEventListener.enable();
+                        }
+
                         call.resolve();
                     } catch (ExecutionException | InterruptedException e) {
 
@@ -228,13 +233,30 @@ public class LLScannerPlugin extends Plugin {
         });
     }
 
-
-
     private void bindCamera(@NonNull ProcessCameraProvider cameraProvider, PreviewView previewView, int lensFacing) {
         cameraProvider.unbindAll();
 
+        // Get screen dimensions
+        DisplayMetrics metrics = new DisplayMetrics();
+        getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+        int screenWidth = metrics.widthPixels;
+        int screenHeight = metrics.heightPixels;
+
+        // Determine if the device is in portrait or landscape mode
+        int rotation = getDisplaySurfaceRotation();
+        boolean isPortrait = rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180;
+
+        // Swap width and height if in landscape
+        int targetWidth = isPortrait ? screenWidth : screenHeight;
+        int targetHeight = isPortrait ? screenHeight : screenWidth;
+
+        Size targetResolution = new Size(targetWidth, targetHeight);
+
         // Preview Use Case
-        Preview preview = new Preview.Builder().build();
+        preview = new Preview.Builder()
+                .setTargetResolution(targetResolution)
+                .setTargetRotation(rotation)
+                .build();
 
         // Camera Selector
         CameraSelector cameraSelector = new CameraSelector.Builder()
@@ -242,16 +264,18 @@ public class LLScannerPlugin extends Plugin {
                 .build();
 
         // Image Analysis Use Case
-        ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
-                .setTargetResolution(new Size(1280, 720))
+        imageAnalysis = new ImageAnalysis.Builder()
+                .setTargetResolution(targetResolution)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setTargetRotation(rotation)
                 .build();
 
         imageAnalysis.setAnalyzer(executor, new BarcodeAnalyzer());
 
         // Image Capture Use Case
         imageCapture = new ImageCapture.Builder()
-                .setTargetResolution(new Size(1280, 720))
+                .setTargetResolution(targetResolution)
+                .setTargetRotation(rotation)
                 .build();
 
         // Bind to Lifecycle
@@ -264,8 +288,10 @@ public class LLScannerPlugin extends Plugin {
         }
     }
 
-
-
+    private int getDisplaySurfaceRotation() {
+        int rotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+        return rotation;
+    }
 
     @ExperimentalGetImage private class BarcodeAnalyzer implements ImageAnalysis.Analyzer {
         @Override
@@ -289,12 +315,11 @@ public class LLScannerPlugin extends Plugin {
     }
 
     private void processBarcodes(List<Barcode> barcodes) {
-//        echo("processBarcodes");
         for (Barcode barcode : barcodes) {
             var bytes = barcode.getDisplayValue();
-            echo( "Value0 " + bytes);
+            echo("Value0 " + bytes);
             String rawValue = barcode.getRawValue();
-            echo( "Raw Value " + rawValue);
+            echo("Raw Value " + rawValue);
             int format = barcode.getFormat();
             echo("Value2: " + format);
 
@@ -372,6 +397,12 @@ public class LLScannerPlugin extends Plugin {
             isScanning.set(false);
 
             showWebViewBackground();
+
+            // Disable the orientation listener
+            if (orientationEventListener != null) {
+                orientationEventListener.disable();
+                orientationEventListener = null;
+            }
 
             call.resolve();
         });
@@ -499,7 +530,6 @@ public class LLScannerPlugin extends Plugin {
     private void showWebViewBackground() {
         WebView webView = getBridge().getWebView();
         webView.setBackgroundColor(Color.WHITE);
-//        webView.getBackground().setAlpha(255);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
     }
 
