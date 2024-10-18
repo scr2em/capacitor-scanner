@@ -70,7 +70,7 @@ public class LLScannerPlugin extends Plugin {
     private ProcessCameraProvider cameraProvider;
     private BarcodeScanner scanner;
     private final Map<String, VoteStatus> scannedCodesVotes = new HashMap<>();
-    private final int voteThreshold = 5;
+    private final int voteThreshold = 2;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean isScanning = new AtomicBoolean(false);
     private FrameLayout containerView;
@@ -80,15 +80,6 @@ public class LLScannerPlugin extends Plugin {
     private ImageAnalysis imageAnalysis;
     private ImageCapture imageCapture;
 
-    private static class VoteStatus {
-        public int votes;
-        public boolean done;
-
-        public VoteStatus(int votes, boolean done) {
-            this.votes = votes;
-            this.done = done;
-        }
-    }
 
     @Override
     public void load() {
@@ -134,7 +125,7 @@ public class LLScannerPlugin extends Plugin {
                     List<Integer> formatList = new ArrayList<>();
                     for (int i = 0; i < formatsArray.length(); i++) {
                         String formatStr = formatsArray.getString(i);
-                        int formatInt = stringToBarcodeFormat(formatStr);
+                        int formatInt = BarcodeFormatHelper.stringToBarcodeFormat(formatStr);
                         if (formatInt != -1) {
                             formatList.add(formatInt);
                         }
@@ -342,9 +333,9 @@ public class LLScannerPlugin extends Plugin {
 
                     JSObject data = new JSObject();
                     data.put("scannedCode", rawValue);
-                    data.put("format", barcodeFormatToString(format));
+                    data.put("format", BarcodeFormatHelper.barcodeFormatToString(format));
                     notifyListeners("barcodeScanned", data, true);
-                    echo(  "Barcode NO_MORE" + rawValue + " scanned with format: " + barcodeFormatToString(format));
+                    echo(  "Barcode NO_MORE" + rawValue + " scanned with format: " + BarcodeFormatHelper.barcodeFormatToString(format));
                 }
             }
         }
@@ -358,47 +349,22 @@ public class LLScannerPlugin extends Plugin {
         return new String(chars);
     }
 
-    private int stringToBarcodeFormat(String formatStr) {
-        return switch (formatStr) {
-            case "AZTEC" -> Barcode.FORMAT_AZTEC;
-            case "CODE_39" -> Barcode.FORMAT_CODE_39;
-            case "CODE_93" -> Barcode.FORMAT_CODE_93;
-            case "CODE_128" -> Barcode.FORMAT_CODE_128;
-            case "DATA_MATRIX" -> Barcode.FORMAT_DATA_MATRIX;
-            case "EAN_8" -> Barcode.FORMAT_EAN_8;
-            case "EAN_13" -> Barcode.FORMAT_EAN_13;
-            case "ITF14" -> Barcode.FORMAT_ITF;
-            case "PDF_417" -> Barcode.FORMAT_PDF417;
-            case "QR_CODE" -> Barcode.FORMAT_QR_CODE;
-            case "UPC_E" -> Barcode.FORMAT_UPC_E;
-            default -> -1;
-        };
-    }
-
-    private String barcodeFormatToString(int format) {
-        return switch (format) {
-            case Barcode.FORMAT_AZTEC -> "AZTEC";
-            case Barcode.FORMAT_CODE_39 -> "CODE_39";
-            case Barcode.FORMAT_CODE_93 -> "CODE_93";
-            case Barcode.FORMAT_CODE_128 -> "CODE_128";
-            case Barcode.FORMAT_DATA_MATRIX -> "DATA_MATRIX";
-            case Barcode.FORMAT_EAN_8 -> "EAN_8";
-            case Barcode.FORMAT_EAN_13 -> "EAN_13";
-            case Barcode.FORMAT_ITF -> "ITF14";
-            case Barcode.FORMAT_PDF417 -> "PDF_417";
-            case Barcode.FORMAT_QR_CODE -> "QR_CODE";
-            case Barcode.FORMAT_UPC_E -> "UPC_E";
-            default -> "UNKNOWN";
-        };
-    }
 
     @PluginMethod
     public void stopScanning(PluginCall call) {
         echo("CUSTOM_LOG_IDENTIFIER stopScanning");
         getActivity().runOnUiThread(() -> {
+
+            if (scanner != null) {
+                scanner.close();
+                scanner = null;
+            }
+
             if (cameraProvider != null) {
                 cameraProvider.unbindAll();
+                cameraProvider = null;
             }
+
             if (previewView != null) {
                 ViewGroup parentView = (ViewGroup) previewView.getParent();
                 if (parentView != null) {
@@ -411,7 +377,7 @@ public class LLScannerPlugin extends Plugin {
 
             showWebViewBackground();
 
-            // Disable the orientation listener
+
             if (orientationEventListener != null) {
                 orientationEventListener.disable();
                 orientationEventListener = null;
@@ -540,18 +506,12 @@ public class LLScannerPlugin extends Plugin {
         logLongMessage(value);
     }
 
-    /**
-     * Must run on UI thread.
-     */
     private void hideWebViewBackground() {
         WebView webView = getBridge().getWebView();
         webView.setBackgroundColor(Color.TRANSPARENT);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
     }
 
-    /**
-     * Must run on UI thread.
-     */
     private void showWebViewBackground() {
         WebView webView = getBridge().getWebView();
         webView.setBackgroundColor(Color.WHITE);
