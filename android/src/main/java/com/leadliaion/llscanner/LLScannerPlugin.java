@@ -11,9 +11,9 @@ import android.util.Size;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.view.View;
-import org.json.JSONArray;
+
 import com.getcapacitor.JSArray;
-import androidx.activity.ComponentActivity;
+
 import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.Camera;
@@ -22,15 +22,12 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
-import androidx.camera.core.CameraProvider;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
-import com.getcapacitor.Bridge;
-import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -48,10 +45,6 @@ import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.common.InputImage;
-
-import org.json.JSONArray;
-import androidx.lifecycle.LifecycleOwner;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -63,24 +56,25 @@ import java.util.concurrent.Executors;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@ExperimentalGetImage @CapacitorPlugin(
+@ExperimentalGetImage
+    @CapacitorPlugin(
         name = "LLScanner",
         permissions = {
                 @Permission(strings = { Manifest.permission.CAMERA }, alias = "camera")
-        }
-)
+        })
 public class LLScannerPlugin extends Plugin {
 
     private PreviewView previewView;
     private ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
     private BarcodeScanner scanner;
-    private Map<String, VoteStatus> scannedCodesVotes = new HashMap<>();
+    private final Map<String, VoteStatus> scannedCodesVotes = new HashMap<>();
     private final int voteThreshold = 5;
-    private Executor executor = Executors.newSingleThreadExecutor();
-    private AtomicBoolean isScanning = new AtomicBoolean(false);
+    private final Executor executor = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean isScanning = new AtomicBoolean(false);
+    private FrameLayout containerView;
 
-    private class VoteStatus {
+    private static class VoteStatus {
         public int votes;
         public boolean done;
 
@@ -122,7 +116,12 @@ public class LLScannerPlugin extends Plugin {
             try {
                 // Get camera direction
                 String cameraDirectionStr = call.getString("cameraDirection", "BACK");
-                int lensFacing = cameraDirectionStr.equals("FRONT") ? CameraSelector.LENS_FACING_FRONT : CameraSelector.LENS_FACING_BACK;
+                int lensFacing;
+                if (cameraDirectionStr != null) {
+                    lensFacing = cameraDirectionStr.equals("FRONT") ? CameraSelector.LENS_FACING_FRONT : CameraSelector.LENS_FACING_BACK;
+                } else {
+                    lensFacing = 1;
+                }
 
                 // Get formats
                 JSArray formatsArray = call.getArray("formats");
@@ -153,6 +152,32 @@ public class LLScannerPlugin extends Plugin {
 
                 scanner = BarcodeScanning.getClient(optionsBuilder.build());
 
+//                // Set up the camera preview
+//                previewView = new PreviewView(getContext());
+//                previewView.setLayoutParams(new FrameLayout.LayoutParams(
+//                        FrameLayout.LayoutParams.MATCH_PARENT,
+//                        FrameLayout.LayoutParams.MATCH_PARENT));
+//                previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
+//
+//                // Insert the previewView into the view hierarchy
+//                FrameLayout containerView = new FrameLayout(getContext());
+//                containerView.setLayoutParams(new FrameLayout.LayoutParams(
+//                        FrameLayout.LayoutParams.MATCH_PARENT,
+//                        FrameLayout.LayoutParams.MATCH_PARENT));
+//
+//                // Add the previewView to the container
+//                containerView.addView(previewView);
+//
+//                // Get the root view and add the containerView
+//                ViewGroup rootView = (ViewGroup) getActivity().findViewById(android.R.id.content);
+//                rootView.addView(containerView);
+
+//                // Bring the WebView to front and make it transparent
+//                WebView webView = getBridge().getWebView();
+//                webView.setBackgroundColor(Color.TRANSPARENT);
+//                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+//                webView.bringToFront();
+
                 // Set up the camera preview
                 previewView = new PreviewView(getContext());
                 previewView.setLayoutParams(new FrameLayout.LayoutParams(
@@ -160,8 +185,8 @@ public class LLScannerPlugin extends Plugin {
                         FrameLayout.LayoutParams.MATCH_PARENT));
                 previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
 
-                // Insert the previewView into the view hierarchy
-                FrameLayout containerView = new FrameLayout(getContext());
+                // Create containerView and add previewView to it
+                containerView = new FrameLayout(getContext());
                 containerView.setLayoutParams(new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT));
@@ -169,15 +194,18 @@ public class LLScannerPlugin extends Plugin {
                 // Add the previewView to the container
                 containerView.addView(previewView);
 
-                // Get the root view and add the containerView
-                ViewGroup rootView = (ViewGroup) getActivity().findViewById(android.R.id.content);
-                rootView.addView(containerView);
-
-                // Bring the WebView to front and make it transparent
+                // Get the WebView and its parent
                 WebView webView = getBridge().getWebView();
-                webView.setBackgroundColor(Color.TRANSPARENT);
-                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-                webView.bringToFront();
+                ViewGroup webViewParent = (ViewGroup) webView.getParent();
+
+                // Insert containerView behind the WebView
+                int webViewIndex = webViewParent.indexOfChild(webView);
+                webViewParent.addView(containerView, webViewIndex);
+
+                // Make WebView transparent
+                hideWebViewBackground();
+
+
 
                 // Initialize CameraX
                 ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(getContext());
@@ -188,12 +216,13 @@ public class LLScannerPlugin extends Plugin {
                         bindCamera(cameraProvider, previewView, lensFacing);
                         call.resolve();
                     } catch (ExecutionException | InterruptedException e) {
-                        e.printStackTrace();
+
+                        echo("Failed to initialize camera: " + e.getMessage());
                         call.reject("Failed to initialize camera: " + e.getMessage());
                     }
                 }, ContextCompat.getMainExecutor(getContext()));
             } catch (Exception e) {
-                e.printStackTrace();
+                echo("Error setting up camera preview: " + e.getMessage());
                 call.reject("Error setting up camera preview: " + e.getMessage());
             }
         });
@@ -231,7 +260,7 @@ public class LLScannerPlugin extends Plugin {
             // Set the surface provider AFTER binding to lifecycle
             preview.setSurfaceProvider(previewView.getSurfaceProvider());
         } catch (Exception e) {
-            e.printStackTrace();
+            echo("Failed to bind camera to lifecycle: " + e.getMessage());
         }
     }
 
@@ -246,9 +275,7 @@ public class LLScannerPlugin extends Plugin {
             if (mediaImage != null) {
                 InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
                 scanner.process(image)
-                        .addOnSuccessListener(barcodes -> {
-                            processBarcodes(barcodes);
-                        })
+                        .addOnSuccessListener(LLScannerPlugin.this::processBarcodes)
                         .addOnFailureListener(e -> {
                             // Handle error
                         })
@@ -294,66 +321,42 @@ public class LLScannerPlugin extends Plugin {
     }
 
     private int stringToBarcodeFormat(String formatStr) {
-        switch (formatStr) {
-            case "AZTEC":
-                return Barcode.FORMAT_AZTEC;
-            case "CODE_39":
-                return Barcode.FORMAT_CODE_39;
-            case "CODE_93":
-                return Barcode.FORMAT_CODE_93;
-            case "CODE_128":
-                return Barcode.FORMAT_CODE_128;
-            case "DATA_MATRIX":
-                return Barcode.FORMAT_DATA_MATRIX;
-            case "EAN_8":
-                return Barcode.FORMAT_EAN_8;
-            case "EAN_13":
-                return Barcode.FORMAT_EAN_13;
-            case "ITF14":
-                return Barcode.FORMAT_ITF;
-            case "PDF_417":
-                return Barcode.FORMAT_PDF417;
-            case "QR_CODE":
-                return Barcode.FORMAT_QR_CODE;
-            case "UPC_E":
-                return Barcode.FORMAT_UPC_E;
-            default:
-                return -1;
-        }
+        return switch (formatStr) {
+            case "AZTEC" -> Barcode.FORMAT_AZTEC;
+            case "CODE_39" -> Barcode.FORMAT_CODE_39;
+            case "CODE_93" -> Barcode.FORMAT_CODE_93;
+            case "CODE_128" -> Barcode.FORMAT_CODE_128;
+            case "DATA_MATRIX" -> Barcode.FORMAT_DATA_MATRIX;
+            case "EAN_8" -> Barcode.FORMAT_EAN_8;
+            case "EAN_13" -> Barcode.FORMAT_EAN_13;
+            case "ITF14" -> Barcode.FORMAT_ITF;
+            case "PDF_417" -> Barcode.FORMAT_PDF417;
+            case "QR_CODE" -> Barcode.FORMAT_QR_CODE;
+            case "UPC_E" -> Barcode.FORMAT_UPC_E;
+            default -> -1;
+        };
     }
 
     private String barcodeFormatToString(int format) {
-        switch (format) {
-            case Barcode.FORMAT_AZTEC:
-                return "AZTEC";
-            case Barcode.FORMAT_CODE_39:
-                return "CODE_39";
-            case Barcode.FORMAT_CODE_93:
-                return "CODE_93";
-            case Barcode.FORMAT_CODE_128:
-                return "CODE_128";
-            case Barcode.FORMAT_DATA_MATRIX:
-                return "DATA_MATRIX";
-            case Barcode.FORMAT_EAN_8:
-                return "EAN_8";
-            case Barcode.FORMAT_EAN_13:
-                return "EAN_13";
-            case Barcode.FORMAT_ITF:
-                return "ITF14";
-            case Barcode.FORMAT_PDF417:
-                return "PDF_417";
-            case Barcode.FORMAT_QR_CODE:
-                return "QR_CODE";
-            case Barcode.FORMAT_UPC_E:
-                return "UPC_E";
-            default:
-                return "UNKNOWN";
-        }
+        return switch (format) {
+            case Barcode.FORMAT_AZTEC -> "AZTEC";
+            case Barcode.FORMAT_CODE_39 -> "CODE_39";
+            case Barcode.FORMAT_CODE_93 -> "CODE_93";
+            case Barcode.FORMAT_CODE_128 -> "CODE_128";
+            case Barcode.FORMAT_DATA_MATRIX -> "DATA_MATRIX";
+            case Barcode.FORMAT_EAN_8 -> "EAN_8";
+            case Barcode.FORMAT_EAN_13 -> "EAN_13";
+            case Barcode.FORMAT_ITF -> "ITF14";
+            case Barcode.FORMAT_PDF417 -> "PDF_417";
+            case Barcode.FORMAT_QR_CODE -> "QR_CODE";
+            case Barcode.FORMAT_UPC_E -> "UPC_E";
+            default -> "UNKNOWN";
+        };
     }
 
     @PluginMethod
     public void stopScanning(PluginCall call) {
-        System.out.println("CUSTOM_LOG_IDENTIFIER stopScanning");
+        echo("CUSTOM_LOG_IDENTIFIER stopScanning");
         getActivity().runOnUiThread(() -> {
             if (cameraProvider != null) {
                 cameraProvider.unbindAll();
@@ -368,10 +371,7 @@ public class LLScannerPlugin extends Plugin {
             scannedCodesVotes.clear();
             isScanning.set(false);
 
-            // Restore WebView background
-            WebView webView = getBridge().getWebView();
-            webView.setBackgroundColor(Color.WHITE);
-            webView.getBackground().setAlpha(255);
+            showWebViewBackground();
 
             call.resolve();
         });
@@ -463,25 +463,44 @@ public class LLScannerPlugin extends Plugin {
         }
     }
 
-    private void logLongMessage(String tag, String message) {
+    private void logLongMessage(String message) {
         if (message.length() > 4000) {
             // Split the message into chunks of 4000 characters
             int chunkCount = message.length() / 4000;
             for (int i = 0; i <= chunkCount; i++) {
                 int max = 4000 * (i + 1);
                 if (max >= message.length()) {
-                    Log.d(tag, message.substring(4000 * i));
+                    Log.d("SCANNER_LOG_IDENTIFIER", message.substring(4000 * i));
                 } else {
-                    Log.d(tag, message.substring(4000 * i, max));
+                    Log.d("SCANNER_LOG_IDENTIFIER", message.substring(4000 * i, max));
                 }
             }
         } else {
-            Log.d(tag, message);
+            Log.d("SCANNER_LOG_IDENTIFIER", message);
         }
     }
 
     private void echo(String value) {
-        logLongMessage("CUSTOM_LOG_IDENTIFIER", value);
+        logLongMessage(value);
+    }
+
+    /**
+     * Must run on UI thread.
+     */
+    private void hideWebViewBackground() {
+        WebView webView = getBridge().getWebView();
+        webView.setBackgroundColor(Color.TRANSPARENT);
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+    }
+
+    /**
+     * Must run on UI thread.
+     */
+    private void showWebViewBackground() {
+        WebView webView = getBridge().getWebView();
+        webView.setBackgroundColor(Color.WHITE);
+//        webView.getBackground().setAlpha(255);
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
     }
 
 }
