@@ -457,6 +457,10 @@ public class LLScannerPlugin extends Plugin {
 
         JSObject ret = new JSObject();
         ret.put("camera", status);
+
+        if (status.equals("granted")) {
+             startScanning(call);
+        }
         call.resolve(ret);
     }
 
