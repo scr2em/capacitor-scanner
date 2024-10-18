@@ -49,8 +49,6 @@ import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.common.InputImage;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -289,8 +287,7 @@ public class LLScannerPlugin extends Plugin {
     }
 
     private int getDisplaySurfaceRotation() {
-        int rotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
-        return rotation;
+        return getActivity().getWindowManager().getDefaultDisplay().getRotation();
     }
 
     @ExperimentalGetImage private class BarcodeAnalyzer implements ImageAnalysis.Analyzer {
@@ -338,7 +335,7 @@ public class LLScannerPlugin extends Plugin {
             if (!voteStatus.done) {
                 voteStatus.votes += 1;
 
-                echo("Barcode " + rawValue + " votes: " + voteStatus.votes + " done: " + voteStatus.done);
+                echo("Barcode " + rawValue + " votes: " + voteStatus.votes + " done: ");
 
                 if (voteStatus.votes >= voteThreshold) {
                     voteStatus.done = true;
@@ -431,44 +428,56 @@ public class LLScannerPlugin extends Plugin {
             return;
         }
 
-        // Create a file to save the image
-        File photoFile = new File(getContext().getCacheDir(), System.currentTimeMillis() + ".jpg");
+        // Create a ByteArrayOutputStream to capture the image in memory
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
+        // Create OutputFileOptions using the ByteArrayOutputStream
         ImageCapture.OutputFileOptions outputOptions =
-                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+                new ImageCapture.OutputFileOptions.Builder(outputStream).build();
 
+        // Capture the image
         imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(getContext()),
                 new ImageCapture.OnImageSavedCallback() {
                     @Override
                     public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        // Read the image file and convert to base64
                         try {
-                            FileInputStream fis = new FileInputStream(photoFile);
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            byte[] buffer = new byte[1024];
-                            int len;
-                            while ((len = fis.read(buffer)) != -1) {
-                                baos.write(buffer, 0, len);
-                            }
-                            fis.close();
-                            byte[] bytes = baos.toByteArray();
+                            // Get the image bytes from the OutputStream
+                            byte[] bytes = outputStream.toByteArray();
+
+                            // Encode the image bytes to Base64
                             String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
+
+                            // Create the response object
                             JSObject ret = new JSObject();
                             ret.put("imageBase64", "data:image/jpeg;base64," + base64);
+
+                            // Resolve the call with the Base64 image
                             call.resolve(ret);
-                            // Delete the temporary file
-                            photoFile.delete();
-                        } catch (IOException e) {
-                            call.reject("Failed to read image file: " + e.getMessage());
+                        } catch (Exception e) {
+                            call.reject("Failed to process image: " + e.getMessage());
+                        } finally {
+                            // Always close the stream to free up resources
+                            try {
+                                outputStream.close();
+                            } catch (IOException e) {
+                                echo("Failed to close output stream: " + e.getMessage());
+                            }
                         }
                     }
 
                     @Override
                     public void onError(@NonNull ImageCaptureException exception) {
                         call.reject("Photo capture failed: " + exception.getMessage());
+                        echo("Photo capture failed: " + exception.getMessage());
+                        try {
+                            outputStream.close();
+                        } catch (IOException e) {
+                           echo("Failed to close output stream: " + e.getMessage());
+                        }
                     }
                 });
     }
+
 
     @PluginMethod
     public void checkPermissions(PluginCall call) {
