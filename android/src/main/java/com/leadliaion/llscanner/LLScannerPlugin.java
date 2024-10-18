@@ -301,8 +301,8 @@ public class LLScannerPlugin extends Plugin {
             if (mediaImage != null) {
                 InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
                 scanner.process(image)
-                        .addOnSuccessListener(LLScannerPlugin.this::processBarcodes)
-                        .addOnFailureListener(e -> {
+                        .addOnSuccessListener(executor,LLScannerPlugin.this::processBarcodes)
+                        .addOnFailureListener(executor,e -> {
                             // Handle error
                         })
                         .addOnCompleteListener(task -> {
@@ -313,23 +313,32 @@ public class LLScannerPlugin extends Plugin {
             }
         }
     }
-
     private void processBarcodes(List<Barcode> barcodes) {
         for (Barcode barcode : barcodes) {
-            var bytes = barcode.getDisplayValue();
-            echo("Value0 " + bytes);
             String rawValue = barcode.getRawValue();
-            echo("Raw Value " + rawValue);
+            if (rawValue == null || rawValue.isEmpty()) {
+                byte[] rawBytes = barcode.getRawBytes();
+                if (rawBytes != null && rawBytes.length > 0) {
+                    // Convert bytes to string by mapping each byte to a character
+                    rawValue = bytesToString(rawBytes);
+                } else {
+                    echo("Barcode has no rawValue or rawBytes, skipping");
+                    continue; // Cannot proceed without rawValue
+                }
+            }
+            echo("Processing barcode with rawValue: " + rawValue);
             int format = barcode.getFormat();
-            echo("Value2: " + format);
 
             VoteStatus voteStatus = scannedCodesVotes.get(rawValue);
             if (voteStatus == null) {
                 voteStatus = new VoteStatus(0, false);
+                scannedCodesVotes.put(rawValue, voteStatus);
             }
 
             if (!voteStatus.done) {
                 voteStatus.votes += 1;
+
+                echo("Barcode " + rawValue + " votes: " + voteStatus.votes + " done: " + voteStatus.done);
 
                 if (voteStatus.votes >= voteThreshold) {
                     voteStatus.done = true;
@@ -338,11 +347,18 @@ public class LLScannerPlugin extends Plugin {
                     data.put("scannedCode", rawValue);
                     data.put("format", barcodeFormatToString(format));
                     notifyListeners("barcodeScanned", data, true);
+                    echo(  "Barcode NO_MORE" + rawValue + " scanned with format: " + barcodeFormatToString(format));
                 }
-
-                scannedCodesVotes.put(rawValue, voteStatus);
             }
         }
+    }
+
+    private String bytesToString(byte[] bytes) {
+        char[] chars = new char[bytes.length];
+        for (int i = 0; i < bytes.length; i++) {
+            chars[i] = (char) (bytes[i] & 0xFF);
+        }
+        return new String(chars);
     }
 
     private int stringToBarcodeFormat(String formatStr) {
