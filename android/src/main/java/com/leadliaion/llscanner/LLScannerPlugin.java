@@ -69,7 +69,7 @@ public class LLScannerPlugin extends Plugin {
     private ProcessCameraProvider cameraProvider;
     private BarcodeScanner scanner;
     private final Map<String, VoteStatus> scannedCodesVotes = new HashMap<>();
-    private final int voteThreshold = 3;
+    private final int voteThreshold = 2;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean isScanning = new AtomicBoolean(false);
     private FrameLayout containerView;
@@ -99,6 +99,7 @@ public class LLScannerPlugin extends Plugin {
         if (getPermissionState("camera") != PermissionState.GRANTED) {
             echo("requestPermissionForAlias");
             requestPermissionForAlias("camera", call, "cameraPermsCallback");
+            call.reject("Camera permission is required to start scanning");
             return;
         }
 
@@ -422,10 +423,8 @@ public class LLScannerPlugin extends Plugin {
 
         JSObject ret = new JSObject();
         ret.put("camera", status);
-
-        if (status.equals("granted")) {
-             startScanning(call);
-        }
+        // If permission is denied, camera will not open
+        // and frontend must handle this case and request permission.
         call.resolve(ret);
     }
 
