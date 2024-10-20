@@ -13,16 +13,16 @@
     "ios/Sources",
     "ios/Tests",
     "Package.swift",
-    "LlScanner.podspec"
+    "CapacitorScanner.podspec"
   ],
   "author": "Mohamed M. Abdelgwad",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://bitbucket.org/leadliaisondev/ll-scanner/src.git"
+    "url": "git+https://github.com/scr2em/capacitor-scanner/src.git"
   },
   "bugs": {
-    "url": "https://bitbucket.org/leadliaisondev/ll-scanner/src/issues"
+    "url": "https://github.com/scr2em/capacitor-scanner/src/issues"
   },
   "keywords": [
     "capacitor",
@@ -31,7 +31,7 @@
   ],
   "scripts": {
     "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
-    "verify:ios": "xcodebuild -scheme LlScanner -destination generic/platform=iOS",
+    "verify:ios": "xcodebuild -scheme CapacitorScanner -destination generic/platform=iOS",
     "verify:android": "cd android && ./gradlew clean build test && cd ..",
     "verify:web": "npm run build",
     "lint": "npm run eslint && npm run prettier -- --check && npm run swiftlint -- lint",
@@ -39,7 +39,7 @@
     "eslint": "eslint . --ext ts",
     "prettier": "prettier \"**/*.{css,html,ts,js,java}\" --plugin=prettier-plugin-java",
     "swiftlint": "node-swiftlint",
-    "docgen": "docgen --api LLScannerPlugin --output-readme README.md --output-json dist/docs.json",
+    "docgen": "docgen --api CapacitorScannerPlugin --output-readme README.md --output-json dist/docs.json",
     "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",
@@ -47,24 +47,24 @@
     "prepare": "npm run build"
   },
   "devDependencies": {
-    "@capacitor/android": "^6.0.0",
-    "@capacitor/cli": "^6.0.0",
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/docgen": "^0.2.2",
-    "@capacitor/ios": "^6.0.0",
-    "@ionic/eslint-config": "^0.4.0",
-    "@ionic/prettier-config": "^4.0.0",
-    "@ionic/swiftlint-config": "^2.0.0",
-    "eslint": "^8.57.0",
-    "prettier": "^3.3.3",
-    "prettier-plugin-java": "^2.6.4",
-    "rimraf": "^6.0.1",
-    "rollup": "^4.24.0",
-    "swiftlint": "^2.0.0",
-    "typescript": "~4.1.5"
+    "@capacitor/android": "6.0.0",
+    "@capacitor/cli": "6.0.0",
+    "@capacitor/core": "6.0.0",
+    "@capacitor/docgen": "0.2.2",
+    "@capacitor/ios": "6.0.0",
+    "@ionic/eslint-config": "0.4.0",
+    "@ionic/prettier-config": "4.0.0",
+    "@ionic/swiftlint-config": "2.0.0",
+    "eslint": "8.57.0",
+    "prettier": "3.3.3",
+    "prettier-plugin-java": "2.6.4",
+    "rimraf": "6.0.1",
+    "rollup": "4.24.0",
+    "swiftlint": "2.0.0",
+    "typescript": "4.1.5"
   },
   "peerDependencies": {
-    "@capacitor/core": "^6.0.0"
+    "@capacitor/core": "6.0.0"
   },
   "prettier": "@ionic/prettier-config",
   "swiftlint": "@ionic/swiftlint-config",

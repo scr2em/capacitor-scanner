@@ -1,4 +1,4 @@
-export interface LLScannerPlugin {
+export interface CapacitorScannerPlugin {
   startScanning(options?: ScannerOptions): Promise<void>;
   stopScanning(): Promise<void>;
   openSettings(): Promise<void>;
@@ -36,6 +36,6 @@ export enum BarcodeFormat {
 
 declare global {
   interface PluginRegistry {
-    QRScanner: LLScannerPlugin;
+    QRScanner: CapacitorScannerPlugin;
   }
 }

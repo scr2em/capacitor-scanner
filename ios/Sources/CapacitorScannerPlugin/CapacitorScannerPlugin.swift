@@ -11,10 +11,10 @@ struct VoteStatus {
     var done: Bool
 }
 
-@objc(LLScannerPlugin)
-public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutputObjectsDelegate, AVCapturePhotoCaptureDelegate {
-    public let identifier = "LLScannerPlugin"
-    public let jsName = "LLScanner"
+@objc(CapacitorScannerPlugin)
+public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutputObjectsDelegate, AVCapturePhotoCaptureDelegate {
+    public let identifier = "CapacitorScannerPlugin"
+    public let jsName = "CapacitorScanner"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "startScanning", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopScanning", returnType: CAPPluginReturnPromise),
@@ -259,7 +259,7 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutp
 
                 self.notifyListeners("barcodeScanned", data: [
                     "scannedCode": stringValue,
-                    "format": LLScannerHelpers.convertBarcodeScannerFormatToString(metadataObject.type)
+                    "format": CapacitorScannerHelpers.convertBarcodeScannerFormatToString(metadataObject.type)
                 ])
             }
         }
@@ -278,11 +278,11 @@ public class LLScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetadataOutp
 
     private func getMetadataObjectTypes(from formats: [String]) -> [BarcodeFormat] {
         if formats.isEmpty {
-            return LLScannerHelpers.getAllSupportedFormats()
+            return CapacitorScannerHelpers.getAllSupportedFormats()
         }
 
         return formats.compactMap { format in
-            LLScannerHelpers.convertStringToBarcodeScannerFormat(format)
+            CapacitorScannerHelpers.convertStringToBarcodeScannerFormat(format)
         }
     }
 

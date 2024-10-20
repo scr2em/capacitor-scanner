@@ -1,4 +1,4 @@
-import { LLScanner } from 'll-scanner';
+import { CapacitorScanner } from 'capacitor-scanner';
 
 const toggleScannerUI = (active) => {
   document.querySelector('main')?.classList.toggle('barcode-scanner-active', active);
@@ -10,7 +10,7 @@ const handleScanningError = (error) => {
 
 const startScanning = (options) => {
   toggleScannerUI(true);
-  LLScanner.startScanning(options).catch(handleScanningError);
+  CapacitorScanner.startScanning(options).catch(handleScanningError);
 };
 
 window.startBackScanningQR = () => startScanning({ cameraDirection: 'BACK', formats: ['QR_CODE'] });
@@ -19,24 +19,24 @@ window.startBackScanning = () => startScanning({ cameraDirection: 'BACK' });
 
 window.stopScanning = () => {
   toggleScannerUI(false);
-  LLScanner.stopScanning();
+  CapacitorScanner.stopScanning();
 };
 
-window.openSettings = LLScanner.openSettings;
+window.openSettings = CapacitorScanner.openSettings;
 
 window.checkPermissions = () => {
-  LLScanner.checkPermissions().then((v) => alert(JSON.stringify(v)));
+  CapacitorScanner.checkPermissions().then((v) => alert(JSON.stringify(v)));
 };
 
-window.requestPermissions = LLScanner.requestPermissions;
+window.requestPermissions = CapacitorScanner.requestPermissions;
 
 window.capturePhoto = () => {
-  LLScanner.capturePhoto().then((v) => {
+  CapacitorScanner.capturePhoto().then((v) => {
     document.getElementById('photo').src = v.imageBase64;
     window.stopScanning();
   });
 };
 
-LLScanner.addListener('barcodeScanned', (e) => {
+CapacitorScanner.addListener('barcodeScanned', (e) => {
   alert(JSON.stringify(e));
 });

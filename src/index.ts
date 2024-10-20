@@ -1,7 +1,7 @@
 import { registerPlugin } from '@capacitor/core';
 
-import type { LLScannerPlugin } from './definitions';
+import type { CapacitorScannerPlugin } from './definitions';
 
-export const LLScanner = registerPlugin<LLScannerPlugin>('LLScanner', );
+export const CapacitorScanner = registerPlugin<CapacitorScannerPlugin>('CapacitorScanner');
 
 export * from './definitions';

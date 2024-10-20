@@ -1,4 +1,4 @@
-package com.leadliaion.llscanner;
+package com.leadliaion.capacitorscanner;
 
 public class VoteStatus {
     public int votes;

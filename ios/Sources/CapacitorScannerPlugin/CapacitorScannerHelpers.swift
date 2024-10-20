@@ -4,7 +4,7 @@ import AVFoundation
 
 public typealias BarcodeFormat = AVMetadataObject.ObjectType
 
-public class LLScannerHelpers {
+public class CapacitorScannerHelpers {
 
     public static func getAllSupportedFormats() -> [BarcodeFormat] {
         return [.aztec,  .code39, .code93, .code128, .dataMatrix, .ean8, .ean13, .itf14, .pdf417, .qr, .upce]

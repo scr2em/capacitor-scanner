@@ -1,11 +1,11 @@
-# ll-scanner
+# Capacitor Scanner
 
 scan codes
 
 ## Install
 
 ```bash
-npm install ll-scanner
+npm install capacitor-scanner
 npx cap sync
 ```
 

@@ -18,7 +18,7 @@ buildscript {
 apply plugin: 'com.android.library'
 
 android {
-    namespace "com.leadliaion.llscanner"
+    namespace "com.leadliaion.capacitorscanner"
     compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34
     defaultConfig {
         minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 22

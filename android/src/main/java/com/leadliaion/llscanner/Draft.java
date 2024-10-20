@@ -2,7 +2,7 @@
 // This file contains the initial implementation of the plugin using CameraX and ZXing for barcode scanning
 // instead of the ML Kit Barcode Scanning API.
 
-//package com.leadliaion.llscanner;
+//package com.leadliaion.capacitorscanner;
 //
 //
 //import android.Manifest;
@@ -79,12 +79,12 @@
 //
 //@ExperimentalGetImage
 //@CapacitorPlugin(
-//        name = "LLScanner",
+//        name = "CapacitorScanner",
 //        permissions = {
 //                @Permission(strings = { Manifest.permission.CAMERA }, alias = "camera")
 //        }
 //)
-//public class LLScannerPlugin extends Plugin {
+//public class CapacitorScannerPlugin extends Plugin {
 //
 //    private PreviewView previewView;
 //    private ProcessCameraProvider cameraProvider;

@@ -2,27 +2,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "LlScanner",
+    name: "CapacitorScanner",
     platforms: [.iOS(.v13)],
     products: [
         .library(
-            name: "LlScanner",
-            targets: ["LLScannerPlugin"])
+            name: "CapacitorScanner",
+            targets: ["CapacitorScannerPlugin"])
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", branch: "main")
     ],
     targets: [
         .target(
-            name: "LLScannerPlugin",
+            name: "CapacitorScannerPlugin",
             dependencies: [
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm")
             ],
-            path: "ios/Sources/LLScannerPlugin"),
-        .testTarget(
-            name: "LLScannerPluginTests",
-            dependencies: ["LLScannerPlugin"],
-            path: "ios/Tests/LLScannerPluginTests")
+            path: "ios/Sources/CapacitorScannerPlugin")
     ]
 )

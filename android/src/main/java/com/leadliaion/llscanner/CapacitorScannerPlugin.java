@@ -1,4 +1,4 @@
-package com.leadliaion.llscanner;
+package com.leadliaion.capacitorscanner;
 
 import android.Manifest;
 import android.content.Intent;
@@ -59,11 +59,11 @@ import android.view.OrientationEventListener;
 
 @ExperimentalGetImage
 @CapacitorPlugin(
-        name = "LLScanner",
+        name = "CapacitorScanner",
         permissions = {
                 @Permission(strings = { Manifest.permission.CAMERA }, alias = "camera")
         })
-public class LLScannerPlugin extends Plugin {
+public class CapacitorScannerPlugin extends Plugin {
 
     private PreviewView previewView;
     private ProcessCameraProvider cameraProvider;
@@ -267,7 +267,7 @@ public class LLScannerPlugin extends Plugin {
             if (mediaImage != null) {
                 InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
                 scanner.process(image)
-                        .addOnSuccessListener(executor,LLScannerPlugin.this::processBarcodes)
+                        .addOnSuccessListener(executor,CapacitorScannerPlugin.this::processBarcodes)
                         .addOnFailureListener(executor,e -> {
                             echo("Failed to process image: " + e.getMessage());
                         })

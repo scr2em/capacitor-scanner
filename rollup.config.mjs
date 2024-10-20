@@ -4,7 +4,7 @@ export default {
     {
       file: 'dist/plugin.js',
       format: 'iife',
-      name: 'capacitorLLScanner',
+      name: 'CapacitorScanner',
       globals: {
         '@capacitor/core': 'capacitorExports',
       },

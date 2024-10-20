@@ -1,4 +1,4 @@
-package com.leadliaion.llscanner;
+package com.leadliaion.capacitorscanner;
 
 import com.google.mlkit.vision.barcode.common.Barcode;
 
