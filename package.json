@@ -1,6 +1,6 @@
 {
   "name": "@scr2em/capacitor-scanner",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "description": "scan codes",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -13,7 +13,7 @@
     "ios/Sources",
     "ios/Tests",
     "Package.swift",
-    "CapacitorScanner.podspec"
+    "Scr2emCapacitorScanner.podspec"
   ],
   "author": "Mohamed M. Abdelgwad",
   "license": "MIT",
