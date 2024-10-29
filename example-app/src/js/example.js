@@ -1,4 +1,4 @@
-import { CapacitorScanner } from 'capacitor-scanner';
+import { CapacitorScanner } from '@scr2em/capacitor-scanner';
 
 const toggleScannerUI = (active) => {
   document.querySelector('main')?.classList.toggle('barcode-scanner-active', active);

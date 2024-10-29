@@ -121,7 +121,7 @@ removeAllListeners() => Promise<void>
 
 #### ScannerOptions
 
-<code>{ formats?: BarcodeFormat[]; cameraDirection?: 'BACK' | 'FRONT'; }</code>
+<code>{ formats?: BarcodeFormat[]; cameraDirection?: 'BACK' | 'FRONT'; debounceTimeInMilli?: number }</code>
 
 
 #### CapturePhotoResult
