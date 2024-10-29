@@ -169,7 +169,7 @@ public class CapacitorScannerPlugin extends Plugin {
                 cameraProviderFuture.addListener(() -> {
                     try {
                         cameraProvider = cameraProviderFuture.get();
-                        bindCamera(cameraProvider, previewView, lensFacing);
+                        bindCamera(cameraProvider, previewView, lensFacing, call);
 
                         orientationEventListener = new OrientationEventListener(getContext()) {
                             @Override
@@ -209,7 +209,7 @@ public class CapacitorScannerPlugin extends Plugin {
         });
     }
 
-    private void bindCamera(@NonNull ProcessCameraProvider cameraProvider, PreviewView previewView, int lensFacing) {
+    private void bindCamera(@NonNull ProcessCameraProvider cameraProvider, PreviewView previewView, int lensFacing, PluginCall call) {
         cameraProvider.unbindAll();
 
         DisplayMetrics metrics = new DisplayMetrics();
@@ -240,7 +240,7 @@ public class CapacitorScannerPlugin extends Plugin {
                 .setTargetRotation(rotation)
                 .build();
 
-        imageAnalysis.setAnalyzer(executor, new BarcodeAnalyzer());
+        imageAnalysis.setAnalyzer(executor, new BarcodeAnalyzer(call));
 
         imageCapture = new ImageCapture.Builder()
                 .setTargetResolution(targetResolution)
@@ -260,18 +260,30 @@ public class CapacitorScannerPlugin extends Plugin {
     }
 
     @ExperimentalGetImage private class BarcodeAnalyzer implements ImageAnalysis.Analyzer {
+        final PluginCall call;
+        BarcodeAnalyzer(PluginCall call) {
+            this.call = call;
+        }
+
         @Override
         public void analyze(@NonNull ImageProxy imageProxy) {
             @androidx.camera.core.ExperimentalGetImage
             android.media.Image mediaImage = imageProxy.getImage();
             if (mediaImage != null) {
                 InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
-                scanner.process(image)
-                        .addOnSuccessListener(executor,CapacitorScannerPlugin.this::processBarcodes)
-                        .addOnFailureListener(executor,e -> {
-                            echo("Failed to process image: " + e.getMessage());
-                        })
-                        .addOnCompleteListener(task -> imageProxy.close());
+                if (scanner != null) {
+                    scanner.process(image)
+                            .addOnSuccessListener(executor, CapacitorScannerPlugin.this::processBarcodes)
+                            .addOnFailureListener(executor, e -> {
+                                echo("Failed to process image: " + e.getMessage());
+                                call.reject("Failed to process image: " + e.getMessage());
+                            })
+                            .addOnCompleteListener(task -> imageProxy.close());
+                } else {
+                    imageProxy.close();
+                    echo("Scanner is null, skipping analysis");
+                    call.reject("Scanner is null, skipping analysis");
+                }
             } else {
                 imageProxy.close();
             }
