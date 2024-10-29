@@ -12,6 +12,7 @@ export interface CapacitorScannerPlugin {
 export type ScannerOptions = {
   formats?: BarcodeFormat[];
   cameraDirection?: 'BACK' | 'FRONT';
+  debounceTimeInMilli?: number
 };
 
 export type BarcodeScannedEvent = { scannedCode: string; format: string };
