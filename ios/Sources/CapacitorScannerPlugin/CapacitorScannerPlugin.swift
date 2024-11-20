@@ -1,6 +1,7 @@
 import AVFoundation
 import Capacitor
 import Foundation
+import Vision // For barcode detection
 
 /**
  * Please read the Capacitor iOS Plugin Development Guide
@@ -21,14 +22,14 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 		CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
 		CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
 		CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
-		CAPPluginMethod(name: "capturePhoto", returnType: CAPPluginReturnPromise)
+		CAPPluginMethod(name: "capturePhoto", returnType: CAPPluginReturnPromise),
 	]
 
 	private var captureSession: AVCaptureSession?
 	private var cameraView: UIView?
 	private var previewLayer: AVCaptureVideoPreviewLayer?
 
-	private let voteThreshold = 5
+	private let voteThreshold = 3
 	private var scannedCodesVotes: [String: VoteStatus] = [:]
 
 	// for capturing images
@@ -36,6 +37,16 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 	private var capturePhotoCall: CAPPluginCall?
 
 	private var orientationObserver: NSObjectProtocol?
+	private var videoDataOutput: AVCaptureVideoDataOutput? // For getting video frames
+
+	// This is how we create a Vision request for detecting barcodes
+	private lazy var barcodeDetectionRequest: VNDetectBarcodesRequest = {
+		let request = VNDetectBarcodesRequest { [weak self] request, error in
+			// This closure is called when Vision finds barcodes
+			self?.processClassification(request, error: error)
+		}
+		return request
+	}()
 
 	@objc func capturePhoto(_ call: CAPPluginCall) {
 		guard let photoOutput = self.photoOutput, captureSession?.isRunning == true else {
@@ -69,54 +80,33 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 		DispatchQueue.main.async {
 			let captureSession = AVCaptureSession()
 
-			// Always check if the device supports 4K first
-			if captureSession.canSetSessionPreset(.hd4K3840x2160) {
-				captureSession.sessionPreset = .hd4K3840x2160
-			} else if captureSession.canSetSessionPreset(.hd1920x1080) {
+			if captureSession.canSetSessionPreset(.hd1920x1080) {
 				captureSession.sessionPreset = .hd1920x1080
 			} else {
 				captureSession.sessionPreset = .hd1280x720
 			}
 
-			captureSession.sessionPreset = AVCaptureSession.Preset.hd4K3840x2160
-
 			let cameraDirection: AVCaptureDevice.Position = call.getString("cameraDirection", "BACK") == "BACK" ? .back : .front
 
 			guard let videoCaptureDevice = self.getCaptureDevice(position: cameraDirection) else {
-				call.reject("Unable to access the camera")
+				print("No camera available")
 				return
 			}
-
-			let videoInput: AVCaptureDeviceInput
-
-			do {
-				videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
-			} catch {
-				call.reject("Unable to initialize video input")
+			guard let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice) else {
+				print("Could not create video input")
 				return
 			}
+			captureSession.addInput(videoInput)
 
-			if captureSession.canAddInput(videoInput) {
-				captureSession.addInput(videoInput)
-			} else {
-				call.reject("Unable to add video input to capture session")
-				return
-			}
+			// 2. Setup video output for Vision
+			let videoOutput = AVCaptureVideoDataOutput()
+			videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue.global(qos: .userInitiated))
+			captureSession.addOutput(videoOutput)
+			self.videoDataOutput = videoOutput
 
-			let metadataOutput = AVCaptureMetadataOutput()
+			let formats = call.getArray("formats", String.self) ?? []
 
-			if captureSession.canAddOutput(metadataOutput) {
-				captureSession.addOutput(metadataOutput)
-
-				metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-
-				let formats = call.getArray("formats", String.self) ?? []
-				let metadataObjectTypes = self.getMetadataObjectTypes(from: formats)
-				metadataOutput.metadataObjectTypes = metadataObjectTypes
-			} else {
-				call.reject("Unable to add metadata output to capture session")
-				return
-			}
+			self.barcodeDetectionRequest.symbologies = self.getSupportedFormats(from: formats)
 
 			// Add photo output
 			let photoOutput = AVCapturePhotoOutput()
@@ -168,10 +158,12 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 
 			self.previewLayer?.removeFromSuperlayer()
 			self.cameraView?.removeFromSuperview()
+			self.videoDataOutput?.setSampleBufferDelegate(nil, queue: nil)
 
 			self.captureSession = nil
 			self.cameraView = nil
 			self.previewLayer = nil
+			self.videoDataOutput = nil
 			self.scannedCodesVotes = [:]
 			self.showWebViewBackground()
 
@@ -246,55 +238,7 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 		previewLayer.frame = cameraView.bounds
 	}
 
-	public func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
-		guard let metadataObject = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
-		      let stringValue = metadataObject.stringValue
-		else {
-			return
-		}
-
-		/*
-		 this is a voting system to
-		 1. avoid scanning the same code
-		 2. avoid scanning any code that doesn't appear for at least in 10 frames of the video stream to reduce the number of false positives
-		 */
-
-		var voteStatus = self.scannedCodesVotes[stringValue] ?? VoteStatus(votes: 0, done: false)
-
-		if !voteStatus.done {
-			voteStatus.votes += 1
-
-			if voteStatus.votes >= self.voteThreshold {
-				voteStatus.done = true
-
-				self.notifyListeners("barcodeScanned", data: [
-					"scannedCode": stringValue,
-					"format": CapacitorScannerHelpers.convertBarcodeScannerFormatToString(metadataObject.type)
-				])
-			}
-		}
-
-		self.scannedCodesVotes[stringValue] = voteStatus
-	}
-
-	private func getCaptureDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-		let discoverySession = AVCaptureDevice.DiscoverySession(
-			deviceTypes: [.builtInDualCamera, .builtInTripleCamera, .builtInWideAngleCamera],
-			mediaType: .video,
-			position: position
-		)
-		// Prioritize higher quality cameras first
-		if let device = discoverySession.devices.first(where: { $0.deviceType == .builtInTripleCamera }) ??
-			discoverySession.devices.first(where: { $0.deviceType == .builtInDualCamera }) ??
-			discoverySession.devices.first(where: { $0.deviceType == .builtInWideAngleCamera })
-		{
-			return device
-		}
-
-		return nil
-	}
-
-	private func getMetadataObjectTypes(from formats: [String]) -> [BarcodeFormat] {
+	private func getSupportedFormats(from formats: [String]) -> [BarcodeFormat] {
 		if formats.isEmpty {
 			return CapacitorScannerHelpers.getAllSupportedFormats()
 		}
@@ -350,6 +294,24 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 		}
 	}
 
+	// Keep the enhanced device selection method
+	private func getCaptureDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+		let discoverySession = AVCaptureDevice.DiscoverySession(
+			deviceTypes: [.builtInDualCamera, .builtInTripleCamera, .builtInWideAngleCamera],
+			mediaType: .video,
+			position: position
+		)
+		// Prioritize higher quality cameras first
+		if let device = discoverySession.devices.first(where: { $0.deviceType == .builtInTripleCamera }) ??
+			discoverySession.devices.first(where: { $0.deviceType == .builtInDualCamera }) ??
+			discoverySession.devices.first(where: { $0.deviceType == .builtInWideAngleCamera })
+		{
+			return device
+		}
+
+		return nil
+	}
+
 	@objc func openSettings(_ call: CAPPluginCall) {
 		let url = URL(string: UIApplication.openSettingsURLString)
 		DispatchQueue.main.async {
@@ -359,6 +321,82 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 			} else {
 				call.reject("unknown")
 			}
+		}
+	}
+
+	private func processClassification(_ request: VNRequest, error: Error?) {
+		// Handle any errors
+		if let error = error {
+			print("Vision error: \(error)")
+			return
+		}
+
+		// Get the barcode observations
+		guard let observations = request.results as? [VNBarcodeObservation] else {
+			return
+		}
+
+		// First find the barcode with highest confidence
+		let highestConfidenceBarcode = observations
+			.filter { $0.payloadStringValue != nil }
+			.max(by: { $0.confidence < $1.confidence })
+
+		// Then process only that barcode if found
+		if let bestObservation = highestConfidenceBarcode,
+		   let payload = bestObservation.payloadStringValue
+		{
+			/*
+			 this is a voting system to
+			 1. avoid scanning the same code
+			 2. avoid scanning any code that doesn't appear for at least in 10 frames
+			 of the video stream to reduce the number of false positives
+			 */
+
+			var voteStatus = self.scannedCodesVotes[payload] ?? VoteStatus(votes: 0, done: false)
+
+			if !voteStatus.done {
+				voteStatus.votes += 1
+
+				if voteStatus.votes >= self.voteThreshold {
+					voteStatus.done = true
+
+					self.notifyListeners("barcodeScanned", data: [
+						"scannedCode": payload,
+						"format": CapacitorScannerHelpers.convertBarcodeScannerFormatToString(bestObservation.symbology),
+					])
+
+					// Reset votes after successful scan
+					self.scannedCodesVotes = [:]
+				}
+			}
+
+			self.scannedCodesVotes[payload] = voteStatus
+		}
+	}
+}
+
+extension CapacitorScannerPlugin: AVCaptureVideoDataOutputSampleBufferDelegate {
+	public func captureOutput(_ output: AVCaptureOutput,
+	                          didOutput sampleBuffer: CMSampleBuffer,
+	                          from connection: AVCaptureConnection)
+	{
+		// This is called for every frame from the camera
+
+		// 1. Get the pixel buffer from the frame
+		guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+			return
+		}
+
+		// 2. Create a Vision image handler
+		let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
+		                                                orientation: .up,
+		                                                options: [:])
+
+		// 3. Perform the barcode detection
+		do {
+			try imageRequestHandler.perform([self.barcodeDetectionRequest])
+		} catch {
+			print("Failed to perform Vision request: \(error)")
 		}
 	}
 }
