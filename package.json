@@ -1,6 +1,6 @@
 {
   "name": "@scr2em/capacitor-scanner",
-  "version": "6.0.4",
+  "version": "6.0.5",
   "description": "scan codes",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
