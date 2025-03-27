@@ -79,19 +79,22 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 
 		DispatchQueue.main.async {
 			let captureSession = AVCaptureSession()
-
-			if captureSession.canSetSessionPreset(.hd1920x1080) {
-				captureSession.sessionPreset = .hd1920x1080
-			} else {
-				captureSession.sessionPreset = .hd1280x720
-			}
-
 			let cameraDirection: AVCaptureDevice.Position = call.getString("cameraDirection", "BACK") == "BACK" ? .back : .front
-
 			guard let videoCaptureDevice = self.getCaptureDevice(position: cameraDirection) else {
 				print("No camera available")
 				return
 			}
+
+			// Check if the selected camera supports the desired preset
+			let desiredPreset = AVCaptureSession.Preset.hd1920x1080
+			if videoCaptureDevice.supportsSessionPreset(desiredPreset) && captureSession.canSetSessionPreset(desiredPreset) {
+				captureSession.sessionPreset = desiredPreset
+			} else if captureSession.canSetSessionPreset(.hd1280x720) {
+				captureSession.sessionPreset = .hd1280x720
+			} else {
+				captureSession.sessionPreset = .medium // Fallback to a lower resolution
+			}
+
 			guard let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice) else {
 				print("Could not create video input")
 				return
