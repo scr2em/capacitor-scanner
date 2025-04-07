@@ -5,6 +5,8 @@ export interface CapacitorScannerPlugin {
   capturePhoto(): Promise<CapturePhotoResult>;
   checkPermissions(): Promise<PermissionsResult>;
   requestPermissions(): Promise<PermissionsResult>;
+  flipCamera(): Promise<void>;
+  toggleFlash(): Promise<FlashResult>;
   addListener(event: 'barcodeScanned', listenerFunc: (result: BarcodeScannedEvent) => void): Promise<void>;
   removeAllListeners(): Promise<void>;
 }
@@ -20,6 +22,8 @@ export type BarcodeScannedEvent = { scannedCode: string; format: string };
 export type PermissionsResult = { camera: 'prompt' | 'denied' | 'granted' };
 
 export type CapturePhotoResult = { imageBase64: string };
+
+export type FlashResult = { enabled: boolean };
 
 export enum BarcodeFormat {
   Aztec = 'AZTEC',

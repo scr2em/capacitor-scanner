@@ -11,8 +11,7 @@ apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
     implementation project(':capacitor-camera')
     implementation project(':capacitor-splash-screen')
-    implementation project(':capacitor-scanner')
-    implementation 'androidx.camera:camera-core:1.1.0'
+    implementation project(':scr2em-capacitor-scanner')
 
 }
 

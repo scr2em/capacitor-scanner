@@ -1,16 +1,16 @@
 import { CapacitorScanner } from '@scr2em/capacitor-scanner';
 
 const toggleScannerUI = (active) => {
-  document.querySelector('main')?.classList.toggle('barcode-scanner-active', active);
+    document.querySelector('main')?.classList.toggle('barcode-scanner-active', active);
 };
 
 const handleScanningError = (error) => {
-  alert(JSON.stringify({ error }));
+    alert(JSON.stringify({ error }));
 };
 
 const startScanning = (options) => {
-  toggleScannerUI(true);
-  CapacitorScanner.startScanning(options).catch(handleScanningError);
+    toggleScannerUI(true);
+    CapacitorScanner.startScanning(options).catch(handleScanningError);
 };
 
 window.startBackScanningQR = () => startScanning({ cameraDirection: 'BACK', formats: ['QR_CODE'] });
@@ -18,25 +18,35 @@ window.startFrontScanning = () => startScanning({ cameraDirection: 'FRONT' });
 window.startBackScanning = () => startScanning({ cameraDirection: 'BACK' });
 
 window.stopScanning = () => {
-  toggleScannerUI(false);
-  CapacitorScanner.stopScanning();
+    toggleScannerUI(false);
+    CapacitorScanner.stopScanning();
 };
 
 window.openSettings = CapacitorScanner.openSettings;
 
 window.checkPermissions = () => {
-  CapacitorScanner.checkPermissions().then((v) => alert(JSON.stringify(v)));
+    CapacitorScanner.checkPermissions().then((v) => alert(JSON.stringify(v)));
 };
 
 window.requestPermissions = CapacitorScanner.requestPermissions;
 
 window.capturePhoto = () => {
-  CapacitorScanner.capturePhoto().then((v) => {
-    document.getElementById('photo').src = v.imageBase64;
-    window.stopScanning();
-  });
+    CapacitorScanner.capturePhoto().then((v) => {
+        document.getElementById('photo').src = v.imageBase64;
+        window.stopScanning();
+    });
+};
+
+window.flipCamera = () => {
+    CapacitorScanner.flipCamera().catch(handleScanningError);
+};
+
+window.toggleFlash = () => {
+    CapacitorScanner.toggleFlash()
+        .then((result) => alert(`Flash ${result.enabled ? 'enabled' : 'disabled'}`))
+        .catch(handleScanningError);
 };
 
 CapacitorScanner.addListener('barcodeScanned', (e) => {
-  alert(JSON.stringify(e));
+    alert(JSON.stringify(e));
 });

@@ -19,6 +19,8 @@ npx cap sync
 * [`capturePhoto()`](#capturephoto)
 * [`checkPermissions()`](#checkpermissions)
 * [`requestPermissions()`](#requestpermissions)
+* [`flipCamera()`](#flipcamera)
+* [`toggleFlash()`](#toggleflash)
 * [`addListener('barcodeScanned', ...)`](#addlistenerbarcodescanned-)
 * [`removeAllListeners()`](#removealllisteners)
 * [Type Aliases](#type-aliases)
@@ -93,6 +95,26 @@ requestPermissions() => Promise<PermissionsResult>
 --------------------
 
 
+### flipCamera()
+
+```typescript
+flipCamera() => Promise<void>
+```
+
+--------------------
+
+
+### toggleFlash()
+
+```typescript
+toggleFlash() => Promise<FlashResult>
+```
+
+**Returns:** <code>Promise&lt;<a href="#flashresult">FlashResult</a>&gt;</code>
+
+--------------------
+
+
 ### addListener('barcodeScanned', ...)
 
 ```typescript
@@ -132,6 +154,11 @@ removeAllListeners() => Promise<void>
 #### PermissionsResult
 
 <code>{ camera: 'prompt' | 'denied' | 'granted' }</code>
+
+
+#### FlashResult
+
+<code>{ enabled: boolean }</code>
 
 
 #### BarcodeScannedEvent

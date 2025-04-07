@@ -2,6 +2,7 @@ package com.leadliaion.capacitorscanner;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.provider.Settings;
@@ -17,6 +18,7 @@ import android.view.View;
 import com.getcapacitor.JSArray;
 
 import androidx.annotation.NonNull;
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 
 import androidx.camera.core.ExperimentalGetImage;
@@ -78,6 +80,10 @@ public class CapacitorScannerPlugin extends Plugin {
     private Preview preview;
     private ImageAnalysis imageAnalysis;
     private ImageCapture imageCapture;
+
+    private boolean isFlashEnabled = false;
+    private int currentLensFacing = CameraSelector.LENS_FACING_BACK;
+
 
 
     @Override
@@ -209,6 +215,9 @@ public class CapacitorScannerPlugin extends Plugin {
         });
     }
 
+    private Camera camera;
+
+
     private void bindCamera(@NonNull ProcessCameraProvider cameraProvider, PreviewView previewView, int lensFacing, PluginCall call) {
         cameraProvider.unbindAll();
 
@@ -239,16 +248,17 @@ public class CapacitorScannerPlugin extends Plugin {
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setTargetRotation(rotation)
                 .build();
-
         imageAnalysis.setAnalyzer(executor, new BarcodeAnalyzer(call));
 
         imageCapture = new ImageCapture.Builder()
                 .setTargetResolution(targetResolution)
                 .setTargetRotation(rotation)
+                .setFlashMode(isFlashEnabled ? ImageCapture.FLASH_MODE_ON : ImageCapture.FLASH_MODE_OFF)
                 .build();
 
         try {
-            cameraProvider.bindToLifecycle(getActivity(), cameraSelector, preview, imageAnalysis, imageCapture);
+            // Store the Camera instance for later use
+            camera = cameraProvider.bindToLifecycle(getActivity(), cameraSelector, preview, imageAnalysis, imageCapture);
             preview.setSurfaceProvider(previewView.getSurfaceProvider());
         } catch (Exception e) {
             echo("Failed to bind camera to lifecycle: " + e.getMessage());
@@ -465,6 +475,61 @@ public class CapacitorScannerPlugin extends Plugin {
             call.reject("Failed to open settings: " + ex.getMessage());
         }
     }
+
+
+    @PluginMethod
+    public void flipCamera(PluginCall call) {
+        if (!isScanning.get()) {
+            call.reject("Camera is not running");
+            return;
+        }
+
+        getActivity().runOnUiThread(() -> {
+            try {
+                currentLensFacing = (currentLensFacing == CameraSelector.LENS_FACING_BACK)
+                        ? CameraSelector.LENS_FACING_FRONT
+                        : CameraSelector.LENS_FACING_BACK;
+
+                bindCamera(cameraProvider, previewView, currentLensFacing, call);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Failed to flip camera: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void toggleFlash(PluginCall call) {
+        if (!isScanning.get()) {
+            call.reject("Camera is not running");
+            return;
+        }
+
+        if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)) {
+            call.reject("Device doesn't have flash capability");
+            return;
+        }
+
+        getActivity().runOnUiThread(() -> {
+            try {
+                if (camera != null) {
+                    // Toggle the flash state
+                    isFlashEnabled = !isFlashEnabled;
+                    camera.getCameraControl().enableTorch(isFlashEnabled);
+
+                    JSObject ret = new JSObject();
+                    ret.put("enabled", isFlashEnabled);
+                    call.resolve(ret);
+                } else {
+                    call.reject("Camera is not initialized");
+                }
+            } catch (Exception e) {
+                call.reject("Failed to toggle flash: " + e.getMessage());
+            }
+        });
+    }
+
+
 
     private void logLongMessage(String message) {
         if (message.length() > 4000) {
