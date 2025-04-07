@@ -23,6 +23,8 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 		CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
 		CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
 		CAPPluginMethod(name: "capturePhoto", returnType: CAPPluginReturnPromise),
+		CAPPluginMethod(name: "flipCamera", returnType: CAPPluginReturnPromise),
+		CAPPluginMethod(name: "toggleFlash", returnType: CAPPluginReturnPromise),
 	]
 
 	private var captureSession: AVCaptureSession?
@@ -374,6 +376,89 @@ public class CapacitorScannerPlugin: CAPPlugin, CAPBridgedPlugin, AVCaptureMetad
 			}
 
 			self.scannedCodesVotes[payload] = voteStatus
+		}
+	}
+
+	@objc func flipCamera(_ call: CAPPluginCall) {
+		guard let session = self.captureSession else {
+			call.reject("Scanning session not active.")
+			return
+		}
+
+		DispatchQueue.global(qos: .userInitiated).async {
+			session.beginConfiguration()
+			// Defer ensures commitConfiguration is called even if errors occur
+			defer { session.commitConfiguration() }
+
+			guard let currentInput = session.inputs.first as? AVCaptureDeviceInput else {
+				call.reject("Could not get current camera input.")
+				return
+			}
+
+			let currentPosition = currentInput.device.position
+			let preferredPosition: AVCaptureDevice.Position = (currentPosition == .back) ? .front : .back
+
+			guard let newDevice = self.getCaptureDevice(position: preferredPosition) else {
+				call.reject("Could not find camera for position: \(preferredPosition).")
+				return
+			}
+
+			guard let newInput = try? AVCaptureDeviceInput(device: newDevice) else {
+				call.reject("Could not create input for new camera device.")
+				return
+			}
+
+			// Remove the existing input
+			session.removeInput(currentInput)
+
+			// Add the new input
+			if session.canAddInput(newInput) {
+				session.addInput(newInput)
+
+				// Session automatically handles connecting outputs (like photoOutput and videoDataOutput)
+				// to the new input. No explicit reconnection needed here.
+
+				// Ensure preview layer orientation is updated for the new camera
+				DispatchQueue.main.async {
+					self.updatePreviewOrientation()
+					call.resolve() // Resolve the call on the main thread after UI update
+				}
+
+			} else {
+				// Important: If adding the new input fails, try to add the old one back!
+				print("Failed to add new input, attempting to restore previous input.")
+				if session.canAddInput(currentInput) {
+					session.addInput(currentInput)
+				}
+				call.reject("Could not add new camera input to session.")
+			}
+		}
+	}
+
+	@objc func toggleFlash(_ call: CAPPluginCall) {
+		guard let session = self.captureSession, let currentInput = session.inputs.first as? AVCaptureDeviceInput else {
+			call.reject("Scanning session not active or camera input not found.")
+			return
+		}
+
+		let device = currentInput.device
+
+		guard device.hasTorch, device.isTorchAvailable else {
+			call.resolve(["enabled": false]) // Report flash as disabled if not available/supported
+			return
+		}
+
+		do {
+			try device.lockForConfiguration()
+			let currentMode = device.torchMode
+			let newMode: AVCaptureDevice.TorchMode = (currentMode == .on) ? .off : .on
+			if device.isTorchModeSupported(newMode) {
+				device.torchMode = newMode
+			}
+			device.unlockForConfiguration()
+			call.resolve(["enabled": device.torchMode == .on])
+		} catch {
+			call.reject("Could not lock device for flash configuration: \(error.localizedDescription)")
 		}
 	}
 }
