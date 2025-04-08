@@ -3,6 +3,8 @@ package com.leadliaion.capacitorscanner;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.net.Uri;
 import android.provider.Settings;
@@ -390,6 +392,12 @@ public class CapacitorScannerPlugin extends Plugin {
             return;
         }
 
+        // Ratio must be between 0 and 1, where 0 or 1 means no reduction.
+        Double qualityRatioObj = call.getDouble("qualityRatio", 1.0);
+        double qualityRatio = qualityRatioObj != null ? qualityRatioObj : 1.0;
+
+
+        // Temporary stream to receive the captured image data.
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
         ImageCapture.OutputFileOptions outputOptions =
@@ -400,13 +408,45 @@ public class CapacitorScannerPlugin extends Plugin {
                     @Override
                     public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                         try {
-                            byte[] bytes = outputStream.toByteArray();
+                            // Get the original image bytes.
+                            byte[] originalBytes = outputStream.toByteArray();
+                            int originalSize = originalBytes.length; // in bytes
 
-                            String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
+                            // If qualityRatio is between 0 and 1 exclusively, perform quality reduction.
+                            if (qualityRatio > 0 && qualityRatio < 1) {
+                                // Calculate the target size in bytes.
+                                int targetSize = (int) (originalSize * qualityRatio);
 
+                                // Decode the captured image into a Bitmap.
+                                Bitmap originalBitmap = BitmapFactory.decodeByteArray(originalBytes, 0, originalSize);
+                                if (originalBitmap == null) {
+                                    call.reject("Failed to decode captured image.");
+                                    return;
+                                }
+
+                                // Prepare a stream to hold the compressed bitmap.
+                                ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
+                                int quality = 100;  // start with maximum quality (100)
+
+                                // Iteratively compress the bitmap until it reaches the target file size.
+                                do {
+                                    compressedStream.reset();
+                                    originalBitmap.compress(Bitmap.CompressFormat.JPEG, quality, compressedStream);
+                                    quality -= 5; // Lower the quality step by step.
+                                } while (compressedStream.toByteArray().length > targetSize && quality > 10);
+
+                                // Use the compressed image bytes.
+                                originalBytes = compressedStream.toByteArray();
+
+                                // Cleanup: recycle the bitmap and close the compressed stream.
+                                originalBitmap.recycle();
+                                compressedStream.close();
+                            }
+
+                            // Convert the final image bytes to a Base64 string.
+                            String base64 = Base64.encodeToString(originalBytes, Base64.NO_WRAP);
                             JSObject ret = new JSObject();
                             ret.put("imageBase64", "data:image/jpeg;base64," + base64);
-
                             call.resolve(ret);
                         } catch (Exception e) {
                             call.reject("Failed to process image: " + e.getMessage());
@@ -426,11 +466,15 @@ public class CapacitorScannerPlugin extends Plugin {
                         try {
                             outputStream.close();
                         } catch (IOException e) {
-                           echo("Failed to close output stream: " + e.getMessage());
+                            echo("Failed to close output stream: " + e.getMessage());
                         }
                     }
                 });
     }
+
+
+
+
 
 
     @PluginMethod
